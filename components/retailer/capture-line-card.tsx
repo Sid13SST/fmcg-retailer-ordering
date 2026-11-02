@@ -302,7 +302,7 @@ function SkuSearch({
 }) {
   const c = m.capture;
   const [q, setQ] = useState(initial.split(" ")[0] ?? "");
-  const [state, setState] = useState<{ loading: boolean; results: SkuOption[] | null }>({ loading: false, results: null });
+  const [state, setState] = useState<{ loading: boolean; results: SkuOption[] | null; failed?: boolean }>({ loading: false, results: null });
 
   useEffect(() => {
     const term = q.trim();
@@ -312,10 +312,11 @@ function SkuSearch({
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/retailer/sku-search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        if (!res.ok) return setState({ loading: false, results: null, failed: true });
         const data = (await res.json()) as { results?: SkuOption[] };
         setState({ loading: false, results: data.results ?? [] });
       } catch (err) {
-        if ((err as Error).name !== "AbortError") setState({ loading: false, results: [] });
+        if ((err as Error).name !== "AbortError") setState({ loading: false, results: null, failed: true });
       }
     }, 250);
     return () => {
@@ -341,6 +342,11 @@ function SkuSearch({
         </button>
       </div>
       {state.loading && <p className="mt-2 text-xs text-slate-500">{c.searching}</p>}
+      {state.failed && !state.loading && (
+        <p role="alert" className="mt-2 text-xs font-medium text-red-700">
+          {m.common.networkError}
+        </p>
+      )}
       {state.results && state.results.length === 0 && !state.loading && <p className="mt-2 text-xs text-slate-600">{c.noResults}</p>}
       {state.results && state.results.length > 0 && (
         <ul className="mt-2 divide-y divide-slate-100">

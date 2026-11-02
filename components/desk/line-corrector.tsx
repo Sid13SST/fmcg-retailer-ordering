@@ -28,6 +28,7 @@ export function LineCorrector({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SkuHit[]>([]);
+  const [searchError, setSearchError] = useState(false);
   const [sku, setSku] = useState<{ id: string; code: string; name: string }>({ id: line.skuId, code: line.skuCode, name: line.skuName });
   const [qty, setQty] = useState(line.qtyCases);
   const [reason, setReason] = useState("");
@@ -42,9 +43,17 @@ export function LineCorrector({
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       fetch(`/api/desk/sku-search?q=${encodeURIComponent(q)}&retailerId=${encodeURIComponent(retailerId)}`, { signal: ctrl.signal })
-        .then((r) => r.json())
-        .then((d: { skus?: SkuHit[] }) => setHits(d.skus ?? []))
-        .catch(() => {});
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((d: { skus?: SkuHit[] }) => {
+          setSearchError(false);
+          setHits(d.skus ?? []);
+        })
+        .catch((err: Error) => {
+          if (err.name !== "AbortError") setSearchError(true);
+        });
     }, 200);
     return () => {
       clearTimeout(t);
@@ -103,6 +112,8 @@ export function LineCorrector({
           onChange={(e) => setQ(e.target.value)}
           className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
         />
+        {searchError && <p role="alert" className="mt-1 text-xs text-red-700">SKU search failed. Check the connection and type again.</p>}
+        {!searchError && q.trim().length >= 2 && hits.length === 0 && <p className="mt-1 text-xs text-slate-500">No matching SKU.</p>}
         {hits.length > 0 && (
           <ul className="mt-1 max-h-48 overflow-y-auto rounded-md bg-white ring-1 ring-slate-200">
             {hits.map((h) => (

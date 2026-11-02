@@ -92,6 +92,7 @@ async function main() {
 
   // Clear in dependency order so the seed is re-runnable.
   await prisma.tallyExport.deleteMany();
+  await prisma.orderLineCorrection.deleteMany();
   await prisma.orderStatusEvent.deleteMany();
   await prisma.aICapture.deleteMany();
   await prisma.orderLine.deleteMany();

@@ -10,6 +10,7 @@ export function createTestClient() {
 /** Wipe all rows (dependency order) so each test starts clean. */
 export async function resetDb(db: PrismaClient) {
   await db.tallyExport.deleteMany();
+  await db.orderLineCorrection.deleteMany();
   await db.orderStatusEvent.deleteMany();
   await db.aICapture.deleteMany();
   await db.orderLine.deleteMany();

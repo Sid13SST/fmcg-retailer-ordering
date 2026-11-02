@@ -129,55 +129,86 @@ model Scheme {
 }
 
 model Order {
-  id                   String             @id @default(cuid())
-  orderNumber          String             @unique
+  id                   String                @id @default(cuid())
+  orderNumber          String                @unique
   retailerId           String
-  retailer             Retailer           @relation(fields: [retailerId], references: [id])
-  status               OrderStatus        @default(DRAFT)
-  source               OrderSource        @default(CATALOG)
+  retailer             Retailer              @relation(fields: [retailerId], references: [id])
+  status               OrderStatus           @default(DRAFT)
+  source               OrderSource           @default(CATALOG)
   createdByRole        Role
   subtotalPaise        Int
-  discountPaise        Int                @default(0)
+  discountPaise        Int                   @default(0)
   gstPaise             Int
   grandTotalPaise      Int
   holdReason           String?
   creditShortfallPaise Int?
+  /// Reason the desk gave when rejecting (shown to the retailer).
+  rejectionReason      String?
+  /// When the desk approved (CONFIRMED); drives "export today's approved".
+  approvedAt           DateTime?
+  exportedAt           DateTime?
   notes                String?
   /// Client-generated idempotency key so a double tap on slow networks cannot create two orders.
-  clientRequestId      String?            @unique
+  clientRequestId      String?               @unique
   lines                OrderLine[]
   statusEvents         OrderStatusEvent[]
   aiCaptures           AICapture[]
   tallyExports         TallyExport[]
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  lineCorrections      OrderLineCorrection[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@index([retailerId, createdAt])
   @@index([status])
 }
 
 model OrderLine {
-  id              String  @id @default(cuid())
-  orderId         String
-  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  skuId           String
-  sku             SKU     @relation(fields: [skuId], references: [id])
+  id                String                @id @default(cuid())
+  orderId           String
+  order             Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  skuId             String
+  sku               SKU                   @relation(fields: [skuId], references: [id])
   /// Snapshots so history stays correct if the catalogue changes later.
-  skuCode         String
-  skuName         String
-  caseSize        Int
-  gstRatePercent  Int
-  qtyCases        Int
-  unitPricePaise  Int
-  freeCases       Int     @default(0)
-  discountPercent Float   @default(0)
-  discountPaise   Int     @default(0)
-  subtotalPaise   Int
-  gstPaise        Int
-  totalPaise      Int
-  schemeLabel     String?
+  skuCode           String
+  skuName           String
+  caseSize          Int
+  gstRatePercent    Int
+  qtyCases          Int
+  unitPricePaise    Int
+  freeCases         Int                   @default(0)
+  discountPercent   Float                 @default(0)
+  discountPaise     Int                   @default(0)
+  subtotalPaise     Int
+  gstPaise          Int
+  totalPaise        Int
+  schemeLabel       String?
+  /// AI_TEXT orders: the retailer's original words for this line, e.g. "5 peti biscuit chhota".
+  sourcePhrase      String?
+  /// AI_TEXT orders: the product words used as the alias phrase, e.g. "biscuit chhota".
+  sourceProductText String?
+  corrections       OrderLineCorrection[]
 
   @@index([orderId])
+}
+
+/// Audit trail of desk corrections to an order line (SKU swap and/or quantity change).
+model OrderLineCorrection {
+  id           String    @id @default(cuid())
+  orderId      String
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLineId  String
+  orderLine    OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  actorName    String
+  fromSkuCode  String
+  toSkuCode    String
+  fromQtyCases Int
+  toQtyCases   Int
+  /// Retailer alias learned from this correction (AI_TEXT lines only), e.g. "biscuit chhota".
+  aliasPhrase  String?
+  reason       String?
+  createdAt    DateTime  @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 /// Audit trail of order status changes. fromStatus is null for the creation event.
@@ -188,6 +219,8 @@ model OrderStatusEvent {
   fromStatus OrderStatus?
   toStatus   OrderStatus
   actorRole  Role
+  /// Desk user who acted (null for retailer / system events).
+  actorName  String?
   note       String?
   createdAt  DateTime     @default(now())
 
@@ -240,9 +273,15 @@ model TallyExport {
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id])
   exportedAt DateTime @default(now())
+  /// Desk user who exported.
+  exportedBy String?
+  /// Shared by every order exported in one bulk action; null for a single-order export.
+  batchId    String?
+  /// Tally-style CSV rows for this order (with header).
   csvPayload String
 
   @@index([orderId])
+  @@index([batchId])
 }
 
 /// Stub for per-retailer pricing (assumption A6). Not used by any logic yet.

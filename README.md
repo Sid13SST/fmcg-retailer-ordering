@@ -3,10 +3,12 @@
 Retailer ordering web app for an FMCG distributor in Jabalpur serving ~1,800 kirana
 shops through 18 salesmen. Retailers see the catalogue with live stock, their dealer
 price and the current scheme, and order in a minute; the order desk reviews orders,
-manages credit holds and exports to Tally (mocked). AI-assisted capture of WhatsApp
-text orders comes in a later chunk.
+manages credit holds and exports to Tally (mocked). Retailers can also paste a WhatsApp-style
+Hinglish text order; AI (or an offline parser) turns it into lines that the retailer checks
+and confirms.
 
-Business assumptions are recorded in [ASSUMPTIONS.md](./ASSUMPTIONS.md).
+Business assumptions are recorded in [ASSUMPTIONS.md](./ASSUMPTIONS.md); configuration and
+the optional Gemini key are covered in [deployment.md](./deployment.md).
 
 ## Stack
 
@@ -14,6 +16,8 @@ Business assumptions are recorded in [ASSUMPTIONS.md](./ASSUMPTIONS.md).
 - Prisma 6 + SQLite (`prisma/dev.db`) — no external services needed
 - Vitest for unit tests, zod for input validation
 - External systems are mocked behind interfaces (`lib/otp/otp-provider.ts`; WhatsApp and Tally later)
+- Optional Google Gemini for text-order capture (`lib/ai-capture.ts`); without a key a deterministic
+  offline parser is used and labeled as such
 
 ## Run locally
 
@@ -33,6 +37,9 @@ Fill in `.env` (values are local-only and never committed):
 DATABASE_URL="file:./dev.db"
 SESSION_SECRET="<any random string of 32+ characters>"
 ```
+
+Optionally add `GEMINI_API_KEY` to enable AI text-order capture (see [deployment.md](./deployment.md)).
+Without it, everything works with the offline parser.
 
 One way to generate a secret:
 
@@ -114,21 +121,59 @@ goes negative (A4, A11), reserve credit for non-held orders (A10), write the ord
 first status event. It is idempotent per `clientRequestId`, so a double tap on a slow network creates
 one order.
 
+## AI order capture from text (chunk 3)
+
+Log in as a retailer and open **Text order** (`/retailer/capture`). Paste a message or tap
+**Use sample message** ("bhaiya 5 peti biscuit chhota, 2 peti washing powder 1 kilo, chai patti
+250 wala 1 peti") and **Read my order**.
+
+1. **Extraction** (`lib/ai-capture.ts`): `GeminiProvider` asks Gemini for strict JSON
+   `[{raw_phrase, qty, unit_hint, sku_guess}]`, validated with zod; invalid output gets one repair
+   prompt, then an honest failure (no guessed lines). `OfflineParserProvider` is used when no key is
+   configured: it splits the message, reads Hindi/English/Devanagari numbers (5, paanch, do, दो) and
+   units (peti/case = cases; dabba/packet/piece = pieces). The screen always says which engine read
+   the message: "AI (Gemini)" (+ model) or "Offline parser - no AI key configured".
+2. **Matching** (`lib/sku-matcher.ts`): retailer aliases, then distributor aliases, then fuzzy name
+   match (Levenshtein on normalized tokens), adjusted for pack size, the AI's guess and this
+   retailer's order history. Confidence high/medium/low is a documented heuristic, **not a
+   probability** (A14); each line offers two alternatives.
+3. **Review** (one card per line): the retailer's original words, the matched SKU or "could not
+   match" (fix by manual search), confidence badge, two tap-to-swap alternatives, stock flags, an
+   explicit "cases or pieces?" question when the unit is unclear, quantity editing and remove.
+   Nothing is ordered until every line is answered and the retailer confirms.
+4. **Confirm** (`lib/capture/service.ts`): the order is created with source `AI_TEXT` through the
+   same `createRetailerOrder` transaction as checkout (stock, schemes, credit hold, short-confirm).
+   In the same transaction the `AICapture` record (raw text, full parsed JSON, engine/model) is marked
+   confirmed with its outcome, and each line is learned as a retailer alias (`CONFIRMED`, or
+   `CORRECTED` when the retailer picked another SKU). Next time a "learned" hint shows.
+
+Hard rules are enforced on the server too: a confirmation must account for every parsed line
+(confirmed or removed) and carry the unit answer wherever one was asked.
+
+Live check of the Gemini path: `npx tsx scripts/gemini-smoke.ts` (needs `GEMINI_API_KEY` or
+`GEMINI_VIA_PROXY=1`; prints HTTP status and parsed JSON, never the key).
+
 ## Project structure
 
 ```
 app/            Next.js routes (login, /retailer/*, /desk, /api/auth/*, /api/retailer/*, /api/locale)
+                incl. /retailer/capture and /api/retailer/capture, /api/retailer/sku-search
 components/     React UI components
 lib/            Pure domain logic and server helpers
   money.ts          integer-paise helpers, half-up rounding, INR formatting
   scheme-engine.ts  line pricing: schemes, GST, stock checks
   pricing.ts        order totals and credit-hold decision
+  ai-capture.ts     text-order extraction: Gemini provider, offline parser, engine selection
+  hinglish.ts       normalization, number/unit words, Levenshtein
+  sku-matcher.ts    phrase -> SKU candidates, heuristic confidence, alternatives
+  capture/          capture pipeline, confirm schema, DB service (parse, confirm, alias learning)
   orders/           cart schema, server quote, transactional order creation, GST breakup
   cart/             browser cart store and quote hook (client)
   i18n.ts           English/Hindi dictionary
   auth/             session signing, roles/route guard, phone validation
   otp/              OtpProvider interface + MockOtpProvider
-prisma/         schema, migrations, deterministic seed
+prisma/         schema, migrations, deterministic seed (static data in seed-data.ts)
+scripts/        gemini-smoke.ts live check
 tests/          Vitest unit tests
 middleware.ts   role guard for /retailer/* and /desk/*
 ```
@@ -146,8 +191,8 @@ middleware.ts   role guard for /retailer/* and /desk/*
   with a reason; it is never silently fulfilled.
 
 GST rates in the seed (5% tea/rusk, 12% namkeen/noodles, 18% biscuits, home and personal care)
-are illustrative per-category values stored per SKU; confirm them against current GST
-notifications before real use.
+are **illustrative demo assumptions, not tax advice** (A13). The UI labels every GST rate and
+amount as a demo rate and totals carry a footnote; confirm real rates before billing use.
 
 ## Seed data
 
@@ -161,12 +206,13 @@ from AI text and some on credit hold.
 
 Next's built-in response compression is turned off (`next.config.ts`): its gzip of streamed RSC
 responses made Chromium abort some client-side navigations. Put the app behind a reverse proxy or
-CDN that compresses (gzip or brotli). That matters for retailers on slow 3G.
+CDN that compresses (gzip or brotli). That matters for retailers on slow 3G. Full configuration,
+the optional Gemini key and production steps are in [deployment.md](./deployment.md).
 
 ## Roadmap
 
 1. Foundation: schema, seed, scheme engine, pricing, auth
 2. Retailer catalogue, cart, checkout, order history (done)
-3. AI text order capture with confidence, alternatives, human confirmation and alias learning
+3. AI text order capture with confidence, alternatives, human confirmation and alias learning (done)
 4. Order desk dashboard, corrections, credit holds, Tally CSV export
 5. UI polish, Hindi/English labels, loading/empty/error states, deployment guide

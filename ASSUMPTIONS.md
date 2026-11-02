@@ -20,7 +20,7 @@ and update the code, tests and this file together.
 
 | ID | Assumption | Where it is enforced |
 |----|------------|----------------------|
-| **A10** | **Credit is reserved when an order is placed** within the limit (`creditUsedPaise` += grand total). An ON_HOLD order does **not** consume credit until the desk approves it. | `lib/orders/create-order.ts` |
+| **A10** | **Credit is reserved when an order is placed** within the limit (`creditUsedPaise` += grand total). An ON_HOLD order does **not** consume credit until the desk approves it. | `lib/orders/create-order.ts`; the seed replays the same rule (`prisma/seed.ts`, checked by `tests/seed-credit.test.ts`) |
 | **A11** | **Stock is reserved when any order is placed**, including ON_HOLD orders (shipped cases incl. free goods, A4), so held goods are not sold twice. Desk rejection restores it (A23). | `lib/orders/create-order.ts` |
 | **A12** | If stock is insufficient at placement, the order is **rejected with the confirmable quantity per line**; it is **short-confirmed only when the retailer explicitly accepts** the reduced quantities. Lines are never cut silently. | `shortagePolicy` in `lib/orders/cart-schema.ts` |
 

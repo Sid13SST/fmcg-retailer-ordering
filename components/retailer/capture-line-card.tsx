@@ -125,7 +125,7 @@ export function CaptureLineCard({
               {sku.code} · {sku.brand} · {formatINR(sku.dealerPricePerCasePaise)} {fmt(m.common.perCaseOf, { n: sku.caseSize })} · {m.common.exclGst}
             </p>
             {!swapped && line.learned && (
-              <p className="mt-1 text-xs text-indigo-700">
+              <p className="mt-1 text-xs text-sky-800">
                 ✨ {fmt(line.learned.source === "CORRECTED" ? c.learnedCorrection : c.learned, { phrase: line.learned.phrase })}
               </p>
             )}

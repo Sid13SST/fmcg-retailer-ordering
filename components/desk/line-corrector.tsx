@@ -145,7 +145,7 @@ export function LineCorrector({
         </label>
       </div>
       {isAiLine && sku.id !== line.skuId && (
-        <p className="text-xs text-violet-800">Saving teaches this retailer&apos;s words → {sku.code} for future text orders.</p>
+        <p className="text-xs text-sky-800">Saving teaches this retailer&apos;s words → {sku.code} for future text orders.</p>
       )}
       {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
       <div className="flex gap-2">

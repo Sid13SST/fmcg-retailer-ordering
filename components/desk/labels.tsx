@@ -17,7 +17,7 @@ export function DeskStatusBadge({ status }: { status: OrderStatus }) {
 
 export function SourceBadge({ source }: { source: OrderSource }) {
   return source === "AI_TEXT" ? (
-    <span className="inline-flex items-center whitespace-nowrap rounded-md bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-800 ring-1 ring-violet-200">
+    <span className="inline-flex items-center whitespace-nowrap rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 ring-1 ring-sky-200">
       AI capture
     </span>
   ) : (

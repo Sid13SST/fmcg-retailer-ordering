@@ -148,7 +148,7 @@ function EngineBadge({ label, prefix, hint, model }: { label: string; prefix: st
       {prefix}:{" "}
       <span
         className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ring-1 ${
-          ai ? "bg-violet-50 text-violet-800 ring-violet-200" : "bg-slate-100 text-slate-700 ring-slate-300"
+          ai ? "bg-sky-50 text-sky-800 ring-sky-200" : "bg-slate-100 text-slate-700 ring-slate-300"
         }`}
       >
         {ai ? "✨ " : "⚙ "}

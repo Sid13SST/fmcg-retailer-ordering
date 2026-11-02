@@ -102,7 +102,7 @@ export function OrderActions({
       <h2 className="mb-3 text-base font-semibold">Actions</h2>
       <div className="flex flex-wrap gap-2">
         {actions.includes("APPROVE") && (
-          <button type="button" disabled={busy} onClick={onApproveClick} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
+          <button type="button" disabled={busy} onClick={onApproveClick} className="btn btn-primary">
             Approve{shortfallPaise > 0 ? " over limit…" : ""}
           </button>
         )}
@@ -117,12 +117,12 @@ export function OrderActions({
           </button>
         )}
         {actions.includes("EXPORT") && (
-          <button type="button" disabled={busy} onClick={() => exportCsv(false)} className={`${btn} bg-indigo-600 text-white hover:bg-indigo-700`}>
+          <button type="button" disabled={busy} onClick={() => exportCsv(false)} className="btn btn-dark">
             Export to Tally
           </button>
         )}
         {hasExport && (
-          <button type="button" disabled={busy} onClick={() => exportCsv(true)} className={`${btn} border border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-50`}>
+          <button type="button" disabled={busy} onClick={() => exportCsv(true)} className="btn btn-secondary">
             Download Tally CSV again
           </button>
         )}

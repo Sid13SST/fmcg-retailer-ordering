@@ -36,11 +36,11 @@ export function SchemeBadge({ label }: { label: string }) {
 }
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
-  DRAFT: "bg-slate-100 text-slate-700 ring-slate-300",
+  DRAFT: "bg-white text-slate-500 ring-slate-200",
   PENDING_DESK_REVIEW: "bg-sky-50 text-sky-800 ring-sky-200",
   ON_HOLD: "bg-amber-50 text-amber-800 ring-amber-300",
   CONFIRMED: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  EXPORTED: "bg-indigo-50 text-indigo-800 ring-indigo-200",
+  EXPORTED: "bg-slate-100 text-slate-700 ring-slate-300",
   REJECTED: "bg-red-50 text-red-700 ring-red-200",
 };
 

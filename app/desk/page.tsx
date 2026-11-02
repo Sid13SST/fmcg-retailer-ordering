@@ -21,7 +21,7 @@ export default async function DeskDashboard({ searchParams }: { searchParams: Pr
       style: "border-emerald-200 bg-emerald-50 text-emerald-800",
       hint: `${counts.approvedToday} approved today`,
     },
-    { label: "Exported today", value: counts.exportedToday, href: "/desk?status=EXPORTED", style: "border-indigo-200 bg-indigo-50 text-indigo-800" },
+    { label: "Exported today", value: counts.exportedToday, href: "/desk?status=EXPORTED", style: "border-slate-200 bg-white text-slate-700" },
   ];
   const filters: Array<{ key: string | null; label: string }> = [{ key: null, label: "All" }, ...QUEUE_STATUSES.map((s) => ({ key: s, label: DESK_STATUS_LABEL[s] }))];
 

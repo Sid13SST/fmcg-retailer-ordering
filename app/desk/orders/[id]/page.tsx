@@ -39,7 +39,7 @@ export default async function DeskOrderReview({ params }: { params: Promise<{ id
           ? `Line corrected: ${c.fromSkuCode} × ${c.fromQtyCases} → ${c.toSkuCode} × ${c.toQtyCases}`
           : `Quantity corrected: ${c.toSkuCode} ${c.fromQtyCases} → ${c.toQtyCases} cases`,
       detail: [c.aliasPhrase ? `Alias learned for this retailer: “${c.aliasPhrase}” → ${c.toSkuCode}` : null, c.reason].filter(Boolean).join(" · ") || null,
-      tone: "bg-violet-500",
+      tone: "bg-sky-500",
     })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
@@ -84,17 +84,17 @@ export default async function DeskOrderReview({ params }: { params: Promise<{ id
       {order.notes && <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">{order.notes}</p>}
 
       {isAi && (
-        <section aria-labelledby="raw-title" className="rounded-xl border border-violet-200 bg-violet-50 p-4">
-          <h3 id="raw-title" className="text-sm font-semibold text-violet-900">Original message from the retailer</h3>
+        <section aria-labelledby="raw-title" className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+          <h3 id="raw-title" className="text-sm font-semibold text-sky-900">Original message from the retailer</h3>
           {capture ? (
             <>
-              <blockquote className="mt-2 whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-sm text-slate-800 ring-1 ring-violet-100">{capture.rawText}</blockquote>
-              <p className="mt-1 text-xs text-violet-800">
+              <blockquote className="mt-2 whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-sm text-slate-800 ring-1 ring-sky-100">{capture.rawText}</blockquote>
+              <p className="mt-1 text-xs text-sky-800">
                 Read by {capture.engine === "GEMINI" ? `AI (Gemini${capture.model ? `, ${capture.model}` : ""})` : capture.engine === "OFFLINE" ? "offline parser" : "text capture"} · confirmed by the retailer before placing
               </p>
             </>
           ) : (
-            <p className="mt-1 text-sm text-violet-900">The original message is not available for this order.</p>
+            <p className="mt-1 text-sm text-sky-900">The original message is not available for this order.</p>
           )}
         </section>
       )}
@@ -107,7 +107,7 @@ export default async function DeskOrderReview({ params }: { params: Promise<{ id
               {isAi && (
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Retailer wrote</p>
-                  <p className="font-mono text-violet-900">{l.sourcePhrase ? `“${l.sourcePhrase}”` : "—"}</p>
+                  <p className="font-mono text-sky-900">{l.sourcePhrase ? `“${l.sourcePhrase}”` : "—"}</p>
                 </div>
               )}
               <div className={`min-w-0 ${isAi ? "" : "sm:col-span-2"}`}>

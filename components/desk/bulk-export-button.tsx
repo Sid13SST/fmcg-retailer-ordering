@@ -24,7 +24,7 @@ export function BulkExportButton({ count }: { count: number }) {
         type="button"
         onClick={run}
         disabled={busy || count === 0}
-        className="min-h-11 rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="btn btn-dark"
       >
         {busy ? "Exporting…" : `Export today's approved (${count})`}
       </button>

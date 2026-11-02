@@ -11,6 +11,7 @@ import { formatINR } from "@/lib/money";
 import { computeOrderTotals } from "@/lib/pricing";
 import type { PlaceOrderInput } from "./cart-schema";
 import { loadSkus, previewCredit, quoteLine, type CreditPreview, type QuotedLine } from "./quote";
+import { NOTE_SEPARATOR, systemNote } from "./system-notes";
 
 export interface StockIssue {
   skuId: string;
@@ -173,14 +174,13 @@ export async function createRetailerOrder(
 
       const holdReason =
         status === "ON_HOLD"
-          ? `Order total exceeds available credit by ${formatINR(credit.shortfallPaise)} — sent to desk for credit approval`
+          ? systemNote.creditHold(formatINR(credit.shortfallPaise))
           : null;
       const shortNote =
         issues.length > 0
-          ? "Short-confirmed by retailer: " +
-            issues.map((i) => `${i.skuCode} ${i.requestedCases} → ${i.availableCases} cases`).join("; ")
+          ? systemNote.shortConfirmed(issues)
           : null;
-      const notes = [options.note, shortNote].filter(Boolean).join(" · ") || null;
+      const notes = [options.note, shortNote].filter(Boolean).join(NOTE_SEPARATOR) || null;
 
       const order = await tx.order.create({
         data: {

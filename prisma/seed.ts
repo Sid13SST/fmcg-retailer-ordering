@@ -19,6 +19,7 @@ import {
   SKUS,
   type SkuSeed,
 } from "./seed-data";
+import { systemNote } from "../lib/orders/system-notes";
 
 const prisma = new PrismaClient();
 
@@ -89,10 +90,10 @@ function statusHistory(status: OrderStatus, createdAt: Date, holdReason: string 
     { fromStatus: null, toStatus: placedAs, actorRole: "RETAILER", note: holdReason, createdAt },
   ];
   if (status === "CONFIRMED" || status === "EXPORTED") {
-    events.push({ fromStatus: placedAs, toStatus: "CONFIRMED", actorRole: "ORDER_DESK", note: "Approved by order desk", createdAt: later(14) });
+    events.push({ fromStatus: placedAs, toStatus: "CONFIRMED", actorRole: "ORDER_DESK", note: systemNote.approved(), createdAt: later(14) });
   }
   if (status === "EXPORTED") {
-    events.push({ fromStatus: "CONFIRMED", toStatus: "EXPORTED", actorRole: "ORDER_DESK", note: "Exported to Tally (CSV)", createdAt: later(20) });
+    events.push({ fromStatus: "CONFIRMED", toStatus: "EXPORTED", actorRole: "ORDER_DESK", note: systemNote.exported(false), createdAt: later(20) });
   } else if (status === "REJECTED") {
     events.push({ fromStatus: placedAs, toStatus: "REJECTED", actorRole: "ORDER_DESK", note: REJECTION_NOTE, createdAt: later(15) });
   }
@@ -363,7 +364,7 @@ async function main() {
         discountPaise: totals.discountPaise,
         gstPaise: totals.gstPaise,
         grandTotalPaise: totals.grandTotalPaise,
-        notes: "Captured from text (offline parser), confirmed by retailer",
+        notes: systemNote.captured("OFFLINE"),
         createdAt,
         updatedAt: createdAt,
         lines: {
@@ -387,7 +388,7 @@ async function main() {
           })),
         },
         statusEvents: {
-          create: { fromStatus: null, toStatus: "PENDING_DESK_REVIEW", actorRole: "RETAILER", note: "Captured from text (offline parser), confirmed by retailer", createdAt },
+          create: { fromStatus: null, toStatus: "PENDING_DESK_REVIEW", actorRole: "RETAILER", note: systemNote.captured("OFFLINE"), createdAt },
         },
       },
     });

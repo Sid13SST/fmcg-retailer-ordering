@@ -17,6 +17,7 @@ import type { Db } from "@/lib/orders/quote";
 import { aliasPhraseFor, type MatchContext } from "@/lib/sku-matcher";
 import type { ConfirmCaptureInput } from "./confirm-schema";
 import { buildCaptureLines, type CaptureLine } from "./pipeline";
+import { systemNote } from "@/lib/orders/system-notes";
 
 export interface SkuOption {
   id: string;
@@ -224,7 +225,7 @@ export async function confirmCapture(
   try {
     return await createRetailerOrder(db, retailerId, toOrderInput(input), {
       source: "AI_TEXT",
-      note: `Captured from text (${capture.engine === "GEMINI" ? "AI (Gemini)" : "offline parser"}), confirmed by retailer`,
+      note: systemNote.captured(capture.engine === "GEMINI" ? "GEMINI" : "OFFLINE"),
       onCreated: async (tx, order) => {
         // Claim the capture atomically so two confirmations cannot both win.
         const claimed = await tx.aICapture.updateMany({

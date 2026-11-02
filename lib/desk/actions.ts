@@ -18,6 +18,7 @@ import { aliasPhraseFor } from "@/lib/sku-matcher";
 import { istDateISO, istDayRange } from "./ist";
 import { tallyCsvForOrders, type TallyOrderInput } from "./tally";
 import { ALLOWED_FROM, canPerform, holdsReservedCredit, type DeskAction } from "./transitions";
+import { systemNote } from "@/lib/orders/system-notes";
 
 export interface DeskActor {
   name: string;
@@ -161,7 +162,7 @@ export async function approveOrder(
         toStatus: "CONFIRMED",
         actorRole: "ORDER_DESK",
         actorName: actor.name,
-        note: overLimitByPaise > 0 ? `Approved over credit limit by ${formatINR(overLimitByPaise)}` : "Approved by order desk",
+        note: overLimitByPaise > 0 ? systemNote.approvedOverLimit(formatINR(overLimitByPaise)) : systemNote.approved(),
         createdAt: now,
       },
     });
@@ -319,7 +320,7 @@ export async function correctOrderLine(
         await tx.retailer.update({ where: { id: retailer.id }, data: { creditUsedPaise: { decrement: order.grandTotalPaise } } });
         status = "ON_HOLD";
         creditShortfallPaise = credit.shortfallPaise;
-        holdReason = `After desk correction the order exceeds available credit by ${formatINR(credit.shortfallPaise)}`;
+        holdReason = systemNote.correctionHold(formatINR(credit.shortfallPaise));
       }
     } else {
       const shortfall = Math.max(0, totals.grandTotalPaise - availableCreditPaise(retailer));
@@ -389,7 +390,7 @@ async function exportWithin(
         toStatus: "EXPORTED",
         actorRole: "ORDER_DESK",
         actorName: actor.name,
-        note: batchId ? "Exported to Tally (bulk CSV)" : "Exported to Tally (CSV)",
+        note: systemNote.exported(!!batchId),
         createdAt: now,
       },
     });

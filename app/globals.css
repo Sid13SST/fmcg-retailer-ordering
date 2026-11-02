@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+/*
+ * Minimal design system. Type scale: text-xs (meta), text-sm (body/secondary),
+ * text-base (body/controls, never smaller on inputs so iOS does not zoom),
+ * text-lg/xl (prices, totals, headings). Spacing in steps of 0.5rem.
+ * Tap targets on retailer screens are at least 44px (min-h-11 / .btn).
+ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-brand-600;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl bg-white ring-1 ring-slate-200;
+  }
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-lg {
+    @apply min-h-12 text-base;
+  }
+  .btn-primary {
+    @apply bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
+  }
+  .btn-secondary {
+    @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 active:bg-slate-100;
+  }
+  .btn-dark {
+    @apply bg-slate-900 text-white hover:bg-slate-800;
+  }
+  .btn-danger {
+    @apply border border-red-300 bg-white text-red-700 hover:bg-red-50;
+  }
+  .field {
+    @apply min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100;
+  }
+  .price {
+    @apply text-xl font-bold tabular-nums tracking-tight;
+  }
+  .num {
+    @apply text-right tabular-nums;
+  }
 }

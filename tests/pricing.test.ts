@@ -73,3 +73,21 @@ describe("credit hold decision", () => {
     expect(() => decideCredit(retailer, 10.5)).toThrow();
   });
 });
+
+describe("gstBreakup", () => {
+  it("groups taxable value and GST by rate, sums match line totals", async () => {
+    const { gstBreakup } = await import("@/lib/orders/gst-breakup");
+    const lines = [
+      priceLine(biscuit, 10, biscuitScheme),
+      priceLine(detergent, 5, detergentScheme),
+      priceLine({ ...tea, stockCases: 10 }, 2),
+    ];
+    const rows = gstBreakup(lines);
+    expect(rows).toEqual([
+      { ratePercent: 5, taxablePaise: 23600, gstPaise: 1180 },
+      { ratePercent: 18, taxablePaise: 8100 + 49227, gstPaise: 1458 + 8861 },
+    ]);
+    const totals = computeOrderTotals(lines);
+    expect(rows.reduce((s, r) => s + r.gstPaise, 0)).toBe(totals.gstPaise);
+  });
+});

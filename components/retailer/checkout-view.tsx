@@ -163,7 +163,7 @@ export function CheckoutView({ m }: { m: CheckoutMessages }) {
   );
 }
 
-function StockPanel({ m, issues }: { m: CheckoutMessages; issues: StockIssue[] }) {
+export function StockPanel({ m, issues }: { m: CheckoutMessages; issues: StockIssue[] }) {
   return (
     <section role="alert" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3">
       <h2 className="font-semibold text-amber-900">{m.checkout.stockTitle}</h2>
@@ -184,7 +184,7 @@ function StockPanel({ m, issues }: { m: CheckoutMessages; issues: StockIssue[] }
   );
 }
 
-function CreditPanel({ credit, m }: { credit: CreditPreview; m: CheckoutMessages }) {
+export function CreditPanel({ credit, m }: { credit: CreditPreview; m: CheckoutMessages }) {
   const over = credit.decision === "ON_HOLD";
   const row = "flex justify-between gap-2";
   return (

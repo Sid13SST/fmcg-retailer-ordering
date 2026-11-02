@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
+import { OfflineBanner } from "@/components/offline-banner";
 import { BottomNav } from "@/components/retailer/bottom-nav";
 import { LanguageToggle } from "@/components/retailer/language-toggle";
 import { getSession } from "@/lib/auth/current-user";
@@ -21,7 +22,7 @@ export default async function RetailerLayout({ children }: { children: React.Rea
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-600">Kirana OrderDesk</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">Kirana OrderDesk</p>
             <p className="truncate text-base font-semibold">{retailer.shopName}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -29,6 +30,7 @@ export default async function RetailerLayout({ children }: { children: React.Rea
             <LogoutButton label={m.nav.logout} />
           </div>
         </div>
+        <OfflineBanner text={m.common.offline} />
       </header>
       <div className="mx-auto max-w-3xl px-4 pb-24 pt-4">{children}</div>
       <BottomNav labels={{ catalogue: m.nav.catalogue, capture: m.nav.capture, cart: m.nav.cart, orders: m.nav.orders }} />

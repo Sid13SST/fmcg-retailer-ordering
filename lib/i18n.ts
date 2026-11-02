@@ -36,6 +36,7 @@ const en = {
     networkError: "Could not reach the server. Check your connection and try again.",
     sessionExpired: "Your session has expired. Please log in again.",
     loginAgain: "Log in again",
+    offline: "You are offline. Your cart is saved on this phone; orders can be placed when the connection is back.",
     demoGstNote:
       "* GST rates (5% / 12% / 18% by category) are illustrative demo assumptions, not actual tax rates or tax advice. Confirm before real billing.",
   },
@@ -273,6 +274,7 @@ const hi: Messages = {
     networkError: "सर्वर से जुड़ नहीं पाए। इंटरनेट जाँचें और फिर से कोशिश करें।",
     sessionExpired: "आपका सत्र समाप्त हो गया है। कृपया फिर से लॉग इन करें।",
     loginAgain: "फिर से लॉग इन करें",
+    offline: "इंटरनेट बंद है। आपका कार्ट इसी फ़ोन में सेव है; कनेक्शन आने पर ऑर्डर कर सकते हैं।",
     demoGstNote:
       "* GST दरें (श्रेणी के अनुसार 5% / 12% / 18%) सिर्फ़ डेमो के लिए मानी गई हैं, असली टैक्स दरें या टैक्स सलाह नहीं। असली बिलिंग से पहले जाँच लें।",
   },

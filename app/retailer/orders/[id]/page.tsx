@@ -29,6 +29,7 @@ export default async function OrderDetailPage({
     include: {
       lines: { orderBy: { skuName: "asc" } },
       statusEvents: { orderBy: { createdAt: "asc" } },
+      lineCorrections: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!order) notFound();
@@ -67,6 +68,26 @@ export default async function OrderDetailPage({
         <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
           <strong>{m.orders.holdReason}:</strong> {order.holdReason}
         </p>
+      )}
+      {order.status === "REJECTED" && order.rejectionReason && (
+        <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200">
+          <strong>{m.orders.rejectedReason}:</strong> {order.rejectionReason}
+        </p>
+      )}
+      {order.lineCorrections.length > 0 && (
+        <section className="mt-3 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-sky-200">
+          <p className="font-semibold">{m.orders.deskChanges}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {order.lineCorrections.map((c) => (
+              <li key={c.id}>
+                {c.fromSkuCode !== c.toSkuCode
+                  ? fmt(m.orders.deskChangedSku, { from: c.fromSkuCode, fromQty: c.fromQtyCases, to: c.toSkuCode, toQty: c.toQtyCases })
+                  : fmt(m.orders.deskChangedQty, { sku: c.toSkuCode, fromQty: c.fromQtyCases, toQty: c.toQtyCases })}
+                {c.reason ? ` (${c.reason})` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {order.notes && (
         <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">

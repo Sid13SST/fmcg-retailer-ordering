@@ -237,6 +237,7 @@ export async function confirmCapture(
         });
         if (claimed.count !== 1) throw new CaptureClaimedError();
         for (const o of outcome) await learnAlias(tx, retailerId, o.productText, o.chosenSkuId, o.corrected);
+        await recordSourceWords(tx, order.id, outcome);
       },
     });
   } catch (err) {
@@ -246,6 +247,32 @@ export async function confirmCapture(
 }
 
 class CaptureClaimedError extends Error {}
+
+/**
+ * Keep the retailer's original words on each order line so the desk can review the
+ * mapping. Two text lines confirmed as the same SKU are merged into one order line
+ * (cart rule), so their words are joined.
+ */
+async function recordSourceWords(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  outcome: Array<{ chosenSkuId: string; rawPhrase: string; productText: string }>,
+): Promise<void> {
+  const bySku = new Map<string, { raw: string[]; product: string[] }>();
+  for (const o of outcome) {
+    const entry = bySku.get(o.chosenSkuId) ?? { raw: [], product: [] };
+    entry.raw.push(o.rawPhrase);
+    entry.product.push(o.productText);
+    bySku.set(o.chosenSkuId, entry);
+  }
+  for (const [skuId, words] of bySku) {
+    await tx.orderLine.updateMany({
+      where: { orderId, skuId },
+      // The first phrase is the alias phrase used for desk corrections.
+      data: { sourcePhrase: words.raw.join(" + "), sourceProductText: words.product[0] ?? null },
+    });
+  }
+}
 
 const CLOSED = { ok: false, code: "CAPTURE_CLOSED", message: "This text order was already confirmed or discarded." } as const;
 

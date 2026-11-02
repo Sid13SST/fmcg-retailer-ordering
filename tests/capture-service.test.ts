@@ -112,6 +112,9 @@ describe("capture service — confirm", () => {
     const byCode = Object.fromEntries(order.lines.map((l) => [l.skuCode, l]));
     expect(byCode["SKU-BS-075"]!.freeCases).toBe(1);
     expect(byCode["SKU-DT-1KG"]!.discountPercent).toBe(3);
+    // The retailer's original words stay on each line for desk review.
+    expect(byCode["SKU-TE-500"]).toMatchObject({ sourcePhrase: "chai patti 250 wala 1 peti", sourceProductText: "chai patti 250 wala" });
+    expect(byCode["SKU-BS-075"]!.sourceProductText).toBe("biscuit chhota");
     // Stock reserved incl. free goods (A4, A11).
     expect((await db.sKU.findUniqueOrThrow({ where: { id: id["SKU-BS-075"]! } })).stockCases).toBe(340 - 11);
 

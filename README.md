@@ -2,27 +2,16 @@
 
 Retailer ordering web app for an FMCG distributor in Jabalpur serving ~1,800 kirana
 shops through 18 salesmen. Retailers see the catalogue with live stock, their dealer
-price and the current scheme, and order in a minute; the order desk reviews orders,
-corrects AI-mapped lines (teaching the retailer's aliases), manages credit holds and exports
-to Tally (mocked CSV). Retailers can also paste a WhatsApp-style
-Hinglish text order; AI (or an offline parser) turns it into lines that the retailer checks
-and confirms.
+price and the current scheme, and order in a minute, in English or Hindi. They can also
+paste a WhatsApp-style Hinglish message, which AI (or an offline parser) turns into lines
+they check and confirm. The order desk reviews orders, corrects AI-mapped lines (teaching
+the retailer's aliases), manages credit holds and exports to Tally (mocked CSV).
 
-Business assumptions are recorded in [ASSUMPTIONS.md](./ASSUMPTIONS.md); configuration and
-the optional Gemini key are covered in [deployment.md](./deployment.md).
+- **Run it:** [deployment.md](./deployment.md) has exact step-by-step instructions, the
+  env variable names, demo logins and how to run the tests.
+- **Business assumptions:** [ASSUMPTIONS.md](./ASSUMPTIONS.md) (A1-A34), summarised below.
 
-## Stack
-
-- Next.js 15 (App Router) + TypeScript (strict) + Tailwind CSS
-- Prisma 6 + SQLite (`prisma/dev.db`) — no external services needed
-- Vitest for unit tests, zod for input validation
-- External systems are mocked behind interfaces (`lib/otp/otp-provider.ts`; WhatsApp and Tally later)
-- Optional Google Gemini for text-order capture (`lib/ai-capture.ts`); without a key a deterministic
-  offline parser is used and labeled as such
-
-## Run locally
-
-Requires Node.js 20+ and npm.
+## Quick start
 
 ```bash
 npm install
@@ -32,46 +21,25 @@ npm install
 cp .env.example .env
 ```
 
-Fill in `.env` (values are local-only and never committed):
-
-```
-DATABASE_URL="file:./dev.db"
-SESSION_SECRET="<any random string of 32+ characters>"
-```
-
-Optionally add `GEMINI_API_KEY` to enable AI text-order capture (see [deployment.md](./deployment.md)).
-Without it, everything works with the offline parser.
-
-One way to generate a secret:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Create the database and seed it (`migrate dev` runs the seed automatically on a fresh database):
+Set `DATABASE_URL` (e.g. `file:./dev.db`) and `SESSION_SECRET` (32+ random characters) in
+`.env`; `GEMINI_API_KEY` is optional. Then:
 
 ```bash
 npx prisma migrate dev
 ```
 
-To re-seed at any time (the seed is idempotent and deterministic):
-
-```bash
-npm run db:seed
-```
-
-Start the app at http://localhost:3000:
-
 ```bash
 npm run dev
 ```
 
-Other scripts:
+Open http://localhost:3000 and log in with `9827000001` (retailer) or `9000000001` (desk),
+OTP `123456`.
 
 | Command | What it does |
 |---------|--------------|
-| `npm test` | Run unit + integration tests (Vitest; integration tests use a throwaway `prisma/test.db`, never `dev.db`) |
-| `npm run build` | Generate Prisma client and build for production |
+| `npm test` | Unit + integration tests (Vitest; integration tests use a throwaway `prisma/test.db`, never `dev.db`) |
+| `npm run build` | Generate the Prisma client and build for production |
+| `npm run seed` | Re-seed demo data (deterministic, idempotent) |
 | `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
 | `npm run db:reset` | Drop, re-migrate and re-seed the database |
 
@@ -98,7 +66,65 @@ Login is phone number + OTP. **The OTP is always `123456`** (mocked, see A7); no
 sessions (`middleware.ts`); other roles are redirected to their own home, anonymous
 users to `/login`.
 
-## Retailer flows (chunk 2)
+## Architecture
+
+```
+  Retailer phone (EN/HI)                       Order desk (desktop or phone)
+  /retailer/* pages                            /desk/* pages
+        |                                             |
+        |  HTML from Server Components; small client  |
+        |  islands (cart, steppers, capture review)    |
+        v                                             v
+  +------------------------------------------------------------------+
+  | middleware.ts   page role guard  +  cross-site write refusal      |
+  +------------------------------------------------------------------+
+  | Next.js App Router (Node runtime)                                 |
+  |  Server Components read via Prisma           Route handlers       |
+  |  (catalogue, orders, desk queue)             /api/retailer/*      |
+  |                                              /api/desk/*  /api/auth|
+  |        every handler: session -> role guard -> zod -> lib/*       |
+  +------------------------------------------------------------------+
+  | lib/ (pure, unit-tested domain logic)                             |
+  |  money.ts  scheme-engine.ts  pricing.ts   orders/ (quote, create) |
+  |  ai-capture.ts -> sku-matcher.ts -> capture/service.ts            |
+  |  desk/ (transitions, actions, tally.ts)   auth/  i18n.ts          |
+  +-------------------+----------------------+-----------------------+
+                      |                      |
+              Prisma + SQLite         Mocked externals
+              (prisma/dev.db)         OtpProvider (fixed OTP)
+                                      Tally CSV download
+                                      Gemini (optional, real HTTPS)
+```
+
+- **One transaction per business action.** Placing an order, confirming a text order and
+  every desk action re-read stock, schemes and credit inside a Prisma transaction with
+  conditional updates, so two people cannot oversell stock or act on the same order twice.
+- **The browser never prices anything.** The cart holds SKU ids and quantities only; every
+  total on screen comes from the server quote (`/api/retailer/quote`), the same code that
+  places the order.
+- **Domain logic is plain TypeScript in `lib/`**, independent of Next.js, which is what the
+  unit tests exercise; route handlers are thin.
+
+## Data model
+
+| Model | Holds |
+|-------|-------|
+| `Retailer` | shop, owner, phone, area, salesman, credit limit and credit used (paise) |
+| `SKU` | code, name, brand, category, case size, dealer price per case (paise, excl. GST), GST rate, stock in cases |
+| `Scheme` | one active scheme per SKU: buy X get Y free, or slab % off from X cases |
+| `Order` / `OrderLine` | status, source (`CATALOGUE` / `AI_TEXT`), totals in paise; each line snapshots name, price, scheme result, GST and the retailer's original words for AI lines |
+| `OrderStatusEvent` | every status change with actor role, desk user name and note (the audit trail) |
+| `OrderLineCorrection` | desk corrections: from/to SKU and quantity, alias phrase learned, reason |
+| `AICapture` | raw pasted text, full parsed JSON, engine and model, outcome or failure reason |
+| `Alias` | phrase -> SKU, distributor-wide or per retailer; source `SEED` / `CONFIRMED` / `CORRECTED` |
+| `TallyExport` | the CSV produced for each export (mocked Tally), with a batch id for bulk exports |
+| `Salesman`, `DeskUser` | staff; `RetailerPriceOverride` is an unused stub for per-retailer pricing (A6) |
+
+Every money column is an integer number of paise.
+
+## Features
+
+### Retailer
 
 Log in as a retailer (e.g. `9827000001`, OTP `123456`):
 
@@ -122,7 +148,7 @@ goes negative (A4, A11), reserve credit for non-held orders (A10), write the ord
 first status event. It is idempotent per `clientRequestId`, so a double tap on a slow network creates
 one order.
 
-## AI order capture from text (chunk 3)
+### Text order capture
 
 Log in as a retailer and open **Text order** (`/retailer/capture`). Paste a message or tap
 **Use sample message** ("bhaiya 5 peti biscuit chhota, 2 peti washing powder 1 kilo, chai patti
@@ -154,7 +180,7 @@ Hard rules are enforced on the server too: a confirmation must account for every
 Live check of the Gemini path: `npx tsx scripts/gemini-smoke.ts` (needs `GEMINI_API_KEY` or
 `GEMINI_VIA_PROXY=1`; prints HTTP status and parsed JSON, never the key).
 
-## Order desk (chunk 4)
+### Order desk
 
 Log in as the desk (`9000000001`, OTP `123456`):
 
@@ -185,7 +211,7 @@ Demo path: order **KOD-00043** (Shri Ram Kirana, AI capture) maps "6 peti biscui
 75 g glucose biscuit. Correct it to Marie biscuit 150 g (`SKU-BS-150`), approve, export; the
 retailer (`9827000004`) then sees *Sent to billing* and the desk's change on the order.
 
-### APIs and access control
+#### APIs and access control
 
 | Route | Who |
 |-------|-----|
@@ -196,33 +222,87 @@ retailer (`9827000004`) then sees *Sent to billing* and the desk's change on the
 database: a retailer gets 403 for another retailer's orders, prices and credit and for every desk
 API, is redirected away from `/desk`, and anonymous page requests are redirected to `/login`.
 
-## Project structure
+## How AI capture works, and where it can go wrong
 
-```
-app/            Next.js routes (login, /retailer/*, /desk, /api/auth/*, /api/retailer/*, /api/locale)
-                incl. /retailer/capture and /api/retailer/capture, /api/retailer/sku-search,
-                /desk/orders/[id], /api/desk/*, /api/orders/[id], /api/retailers/[id]/*
-components/     React UI components
-lib/            Pure domain logic and server helpers
-  money.ts          integer-paise helpers, half-up rounding, INR formatting
-  scheme-engine.ts  line pricing: schemes, GST, stock checks
-  pricing.ts        order totals and credit-hold decision
-  ai-capture.ts     text-order extraction: Gemini provider, offline parser, engine selection
-  hinglish.ts       normalization, number/unit words, Levenshtein
-  sku-matcher.ts    phrase -> SKU candidates, heuristic confidence, alternatives
-  capture/          capture pipeline, confirm schema, DB service (parse, confirm, alias learning)
-  desk/             desk transitions, actions (approve/hold/reject/correct/export), queries,
-                    mocked Tally CSV, IST day helpers
-  orders/           cart schema, server quote, transactional order creation, GST breakup
-  cart/             browser cart store and quote hook (client)
-  i18n.ts           English/Hindi dictionary
-  auth/             session signing, roles/route guard, retailer data access rule, phone validation
-  otp/              OtpProvider interface + MockOtpProvider
-prisma/         schema, migrations, deterministic seed (static data in seed-data.ts)
-scripts/        gemini-smoke.ts live check
-tests/          Vitest unit + integration tests (desk actions, access control)
-middleware.ts   role guard for /retailer/* and /desk/*
-```
+**Two stages, kept separate.** Extraction turns the message into `{raw_phrase, qty,
+unit_hint, sku_guess}` rows (Gemini with strict JSON validated by zod, or the offline
+parser). Matching then maps each phrase to SKUs in our own code (`lib/sku-matcher.ts`). The
+model never decides the final SKU or price; its `sku_guess` is one input to the score.
+
+**Confidence is a heuristic score, not a probability (A14).** Each candidate SKU gets an
+additive score:
+
+| Evidence | Score |
+|----------|-------|
+| this retailer's own alias, exact / fuzzy | 1.00 / 0.90 |
+| distributor alias, exact / fuzzy | 0.92 / 0.80 |
+| fuzzy name match (Levenshtein on normalized tokens) | up to 0.90 |
+| pack size in the words agrees / conflicts ("250 wala", "1 kilo") | +0.12 / -0.25 |
+| Gemini's `sku_guess` points at it | +0.20 |
+| retailer ordered it in the last 90 days | up to +0.08 |
+
+`high` needs a score of 0.85 or more **and** a lead of 0.2 over the runner-up; `medium` needs
+0.65; below 0.5 the line is shown as *could not match*. The thresholds are hand-tuned on the
+seed catalogue and are not calibrated against real outcomes, so the UI says "check this" and
+always shows the retailer's own words, two alternatives and a search.
+
+**Where it can go wrong:**
+
+- **Ambiguous words.** "biscuit" fits three SKUs. The margin rule keeps it at `medium`, but
+  the top pick can still be the wrong one; the retailer has to look.
+- **Learned aliases can be wrong.** If a retailer accepts a wrong match, that phrase becomes
+  their alias and outranks everything next time. A desk correction overwrites it (A26), and
+  an explicit pack size in the words still beats a contradicting alias (A16).
+- **Units.** "5 dabba" could be 5 pieces or 5 cases. We never guess: the retailer must
+  choose, and pieces are rounded **up** to whole cases (A15), which can over-order.
+- **Numbers.** Gemini can rewrite a quantity; lines where the AI's number differs from the
+  number in the words are flagged. Number words outside the built-in list (A20) are missed by
+  the offline parser and show as "no quantity".
+- **Spelling far from the catalogue.** Heavy misspellings or local brand nicknames fall
+  below 0.5 and need a manual search, until the retailer's confirmation teaches the alias.
+- **Gemini availability.** Quota or model errors fall back to the next model; if all fail,
+  nothing is guessed and the retailer can choose the offline parser explicitly (A19).
+
+Nothing is ordered until every line has an answer and the retailer confirms; the server
+re-checks that rule.
+
+## UI and performance choices
+
+- **One design system** (`tailwind.config.ts`, `app/globals.css`): a single primary colour
+  (brand orange) for primary actions, slate for everything else, semantic colours only for
+  meaning (green = saving/success, amber = needs attention, red = error, sky = info). Shared
+  `.btn`, `.field`, `.card` and `.price` classes, a visible focus ring, system fonts.
+- **Retailer screens** are built for ordering between customers: every tap target is at
+  least 44 px (checked at 360 px with Playwright), prices are the largest text on a card, and
+  a **sticky cart bar** above the bottom nav always shows the server-priced total and one
+  action (*View cart* / *Checkout*).
+- **Desk screens** are denser: aligned numeric columns (`tabular-nums`, right-aligned) in a
+  table on wide screens, one card per order on phones so nothing scrolls sideways.
+- **Every screen works at 360 px width with no horizontal scroll** (catalogue, cart,
+  checkout, text order and its review, orders, order detail, login, desk queue and review,
+  in English and Hindi).
+- **States:** skeletons while loading (catalogue, cart, orders, desk), empty states (cart,
+  orders, search), errors with a retry (route error boundaries, failed quote, failed capture
+  with an explicit offline option, failed SKU search), an offline banner, and a bilingual
+  404 and root error page.
+- **Lean first load.** Pages are Server Components; client JavaScript is limited to small
+  islands (cart store, quantity steppers, the cart bar, capture review, desk actions). No UI
+  kit, icon font, chart library, date library or web font: product images are emoji, icons
+  are text, dates use `Intl`. Dictionaries stay on the server and only the strings a client
+  component needs are passed as props. Production build: about 103 kB of shared framework JS
+  (React + Next), plus 0.2 to 7 kB per retailer page (largest: text-order capture at 116 kB
+  first load in total).
+- Next's built-in response compression is off (it broke some streamed navigations in
+  Chromium); put a compressing reverse proxy or CDN in front (see deployment.md).
+
+## Hindi
+
+Every retailer-facing string is in the English/Hindi dictionary (`lib/i18n.ts`), including
+login and its errors, the capture engine labels, category names and the notes the system
+writes on orders (`lib/orders/system-notes.ts`, A30). Tests check that Hindi has every English
+key with the same placeholders, that every seeded category has a Hindi name and that every
+system note template translates. Product names, brands and SKU codes are not translated (A32).
+Text typed by the desk is shown as written. Desk screens are English (A31).
 
 ## Money and pricing rules
 
@@ -250,17 +330,115 @@ text (with the retailer's words on each line), some on credit hold, approved ord
 5 days already exported to Tally (with stored CSV), two retailers silent for 14+ days and one
 fresh AI order with a deliberately mis-mapped line for the desk demo.
 
-## Deployment notes
+## Security notes
 
-Next's built-in response compression is turned off (`next.config.ts`): its gzip of streamed RSC
-responses made Chromium abort some client-side navigations. Put the app behind a reverse proxy or
-CDN that compresses (gzip or brotli). That matters for retailers on slow 3G. Full configuration,
-the optional Gemini key and production steps are in [deployment.md](./deployment.md).
+What is in place, and what is not:
 
-## Roadmap
+- **Input validation:** every route handler validates its body, query and path ids with zod
+  before touching the database (`lib/validation.ts`, `lib/*/schemas.ts`); malformed ids answer
+  400/404 without a query. Quantities, message length and reasons have upper bounds.
+- **Database access** goes only through Prisma's query builder, which parameterizes every
+  value. There is no raw SQL.
+- **Sessions:** a signed token (HMAC-SHA256 with `SESSION_SECRET`, Web Crypto) in an
+  **httpOnly, SameSite=Lax** cookie, `Secure` in production, 7-day expiry; payloads are
+  schema-checked on every read. Requests fail closed if the secret is missing or shorter than
+  32 characters.
+- **Authorization:** `middleware.ts` guards `/retailer/*` and `/desk/*` pages by role; layouts
+  check again; every API handler calls `requireRoleApi` or `requireRetailerAccessApi`. A
+  retailer can read only its own orders, prices and credit (403 otherwise, even for unknown
+  ids, A29). Integration tests run the real handlers and middleware to prove it.
+- **CSRF:** SameSite=Lax plus a middleware check that refuses API writes whose `Origin` is
+  another site (A34).
+- **Headers:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: same-origin`, a restrictive `Permissions-Policy`, no `X-Powered-By`.
+- **Secrets:** none in the repo. `.env` is gitignored; `.env.example` lists names only. The
+  Gemini key is read on the server, sent only as a request header and never logged, stored or
+  returned to the browser. Gemini receives the pasted message and SKU names only (A17).
+- **Output:** React escapes all rendered text; the Tally CSV neutralizes cells that look like
+  spreadsheet formulas (A28).
 
-1. Foundation: schema, seed, scheme engine, pricing, auth
-2. Retailer catalogue, cart, checkout, order history (done)
-3. AI text order capture with confidence, alternatives, human confirmation and alias learning (done)
-4. Order desk dashboard, corrections, credit holds, Tally CSV export (done)
-5. UI polish, Hindi/English labels, loading/empty/error states, deployment guide
+Honest gaps, all acceptable for a demo but required before production:
+
+- **OTP is mocked** (fixed code) and there is **no rate limiting** on login or the AI
+  endpoint. A real deployment needs OTP expiry, attempt limits and per-IP/per-number throttling.
+- **No Content-Security-Policy** yet (Next's inline scripts need a nonce-based setup).
+- **Sessions cannot be revoked** before they expire (stateless tokens); logout only clears the
+  cookie on that device.
+- **SQLite** is a single file with no encryption at rest; production should use Postgres with
+  backups and least-privilege credentials.
+- Pasted messages are stored in `AICapture.rawText` and may contain personal data typed by
+  the retailer; there is no retention policy yet.
+
+## Assumptions summary
+
+The full table with where each rule is enforced is in [ASSUMPTIONS.md](./ASSUMPTIONS.md).
+In short:
+
+- **Pricing:** dealer prices are per case and exclude GST (A1, A2); one active scheme per SKU,
+  never stacked (A3); free goods consume stock (A4); a slab discount applies to the whole line
+  (A5); one price list for all retailers (A6); GST rates are demo values, labeled everywhere (A13).
+- **Credit and stock:** over-limit orders go ON_HOLD, never silently rejected (A9); credit is
+  reserved on placement (A10); stock is reserved for every placed order (A11); shortages are
+  short-confirmed only with the retailer's explicit consent (A12).
+- **AI capture:** confidence is a heuristic (A14); orders are whole cases and unclear units
+  are asked (A15); confirmations and desk corrections teach aliases (A16, A26); what Gemini
+  sees (A17); model fallback (A18); failures are never replaced by guesses (A19).
+- **Desk:** corrections reprice at today's catalogue (A21); over-limit approval needs an
+  explicit current-shortfall confirmation (A22); allowed transitions (A23); IST business days
+  (A24); Tally CSV layout (A27, A28); access control (A29).
+- **Mocks:** OTP (A7) and Tally (A8) are mocked; WhatsApp is a paste box.
+- **Chunk 5:** translated system notes (A30), English desk (A31), category dictionary (A32),
+  server-priced sticky total (A33), cross-site write refusal (A34).
+
+## Known limits
+
+- **Scale:** SQLite and single-process Next.js are fine for a demo and a few users; 1,800
+  retailers ordering at the morning peak need Postgres and more than one instance.
+- **Catalogue search** uses `contains` queries: fine for 24 SKUs, not for thousands (needs
+  full-text search, and transliteration for Devanagari vs Latin spellings).
+- **Offline:** retailers' carts persist on the phone when the connection drops, but nothing
+  else works offline; there is no service worker.
+- **The AI confidence thresholds** are tuned on the seed catalogue only (A14).
+- **No notifications:** the retailer sees desk decisions only by opening *My orders*.
+- **No pagination:** *My orders* shows the latest 100 orders and the desk queue loads every order matching the filter; both need paging at real volume.
+- **Desk audit trail** is append-only in the database but not tamper-evident.
+
+## Deliberately cut, and what would come next
+
+| Cut | Why | Next step |
+|-----|-----|-----------|
+| **Salesman offline mode** | 18 salesmen visiting shops with patchy coverage need an installable app with an offline queue and conflict handling, which is a project of its own. The `Salesman` model exists; the role does not. | Add `SALESMAN` role and a PWA with a service worker and a queue of orders keyed by `clientRequestId` (already idempotent), synced when online. |
+| **Voice and photo capture** | Text proved the pipeline (extract -> match -> human review -> learn) first; voice and handwritten lists add speech-to-text and OCR error on top of the matching error. | Feed a transcript or an OCR result into the same `parseCapture` pipeline with its own engine label; the review screen does not change. |
+| **Per-retailer pricing** | The brief has one dealer price list (A6). | Fill `RetailerPriceOverride` (stub exists, and `/api/retailers/[id]/prices` already applies it), use it in `quoteCart` / `createRetailerOrder`, and add a desk screen to manage it. |
+| **Real SMS / WhatsApp / Tally** | External accounts and credentials are out of scope for a take-home. | Swap `MockOtpProvider`, add a WhatsApp Business webhook into the capture pipeline, post Tally XML instead of downloading CSV. |
+
+## Project structure
+
+```
+app/            Next.js routes (login, /retailer/*, /desk, /api/auth/*, /api/retailer/*, /api/locale)
+                incl. /retailer/capture and /api/retailer/capture, /api/retailer/sku-search,
+                /desk/orders/[id], /api/desk/*, /api/orders/[id], /api/retailers/[id]/*
+components/     React UI components (retailer/, desk/, shared offline banner)
+lib/            Pure domain logic and server helpers
+  money.ts          integer-paise helpers, half-up rounding, INR formatting
+  scheme-engine.ts  line pricing: schemes, GST, stock checks
+  pricing.ts        order totals and credit-hold decision
+  ai-capture.ts     text-order extraction: Gemini provider, offline parser, engine selection
+  hinglish.ts       normalization, number/unit words, Levenshtein
+  sku-matcher.ts    phrase -> SKU candidates, heuristic confidence, alternatives
+  capture/          capture pipeline, confirm schema, DB service (parse, confirm, alias learning)
+  desk/             desk transitions, actions (approve/hold/reject/correct/export), queries,
+                    mocked Tally CSV, IST day helpers
+  orders/           cart schema, server quote, transactional order creation, GST breakup,
+                    system-note templates and their translation
+  cart/             browser cart store and quote hook (client)
+  i18n.ts           English/Hindi dictionary, category names
+  validation.ts     zod schemas for route ids and search terms
+  auth/             session signing, roles/route guard, retailer data access rule, phone validation,
+                    cross-site write check
+  otp/              OtpProvider interface + MockOtpProvider
+prisma/         schema, migrations, deterministic seed (static data in seed-data.ts)
+scripts/        gemini-smoke.ts live check
+tests/          Vitest unit + integration tests (desk actions, access control, i18n, notes)
+middleware.ts   role guard for /retailer/* and /desk/*, cross-site refusal for /api/*
+```

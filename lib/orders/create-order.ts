@@ -6,7 +6,7 @@
  * by shipped cases incl. free goods (A4), reserve credit (A10), write the order,
  * its lines and the first status event. Any failure rolls everything back.
  */
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma, type OrderSource, type PrismaClient } from "@prisma/client";
 import { formatINR } from "@/lib/money";
 import { computeOrderTotals } from "@/lib/pricing";
 import type { PlaceOrderInput } from "./cart-schema";
@@ -80,10 +80,23 @@ async function existingByRequestId(db: PrismaClient, retailerId: string, clientR
   return result;
 }
 
+export interface CreateOrderOptions {
+  /** CATALOG (default) or AI_TEXT for orders confirmed from a text capture. */
+  source?: OrderSource;
+  /** Extra context for the order note and first status event, e.g. "Captured from text (Gemini)". */
+  note?: string;
+  /**
+   * Runs inside the same transaction after the order is written (e.g. mark the AI
+   * capture confirmed, learn aliases). Throwing rolls the whole order back.
+   */
+  onCreated?: (tx: Prisma.TransactionClient, order: { id: string; orderNumber: string }) => Promise<void>;
+}
+
 export async function createRetailerOrder(
   db: PrismaClient,
   retailerId: string,
   input: PlaceOrderInput,
+  options: CreateOrderOptions = {},
 ): Promise<CreateOrderResult> {
   const previous = await existingByRequestId(db, retailerId, input.clientRequestId);
   if (previous) return previous;
@@ -162,11 +175,12 @@ export async function createRetailerOrder(
         status === "ON_HOLD"
           ? `Order total exceeds available credit by ${formatINR(credit.shortfallPaise)} — sent to desk for credit approval`
           : null;
-      const notes =
+      const shortNote =
         issues.length > 0
           ? "Short-confirmed by retailer: " +
             issues.map((i) => `${i.skuCode} ${i.requestedCases} → ${i.availableCases} cases`).join("; ")
           : null;
+      const notes = [options.note, shortNote].filter(Boolean).join(" · ") || null;
 
       const order = await tx.order.create({
         data: {
@@ -174,7 +188,7 @@ export async function createRetailerOrder(
           clientRequestId: input.clientRequestId,
           retailerId: retailer.id,
           status,
-          source: "CATALOG",
+          source: options.source ?? "CATALOG",
           createdByRole: "RETAILER",
           subtotalPaise: totals.subtotalPaise,
           discountPaise: totals.discountPaise,
@@ -206,6 +220,8 @@ export async function createRetailerOrder(
           },
         },
       });
+
+      if (options.onCreated) await options.onCreated(tx, { id: order.id, orderNumber: order.orderNumber });
 
       return {
         ok: true as const,

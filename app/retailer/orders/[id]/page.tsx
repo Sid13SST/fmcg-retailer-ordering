@@ -9,6 +9,7 @@ import { getI18n } from "@/lib/i18n-server";
 import { formatINR } from "@/lib/money";
 import { DemoGstNote } from "@/components/retailer/totals-card";
 import { gstBreakup } from "@/lib/orders/gst-breakup";
+import { localizeNote } from "@/lib/orders/system-notes";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function OrderDetailPage({
 
       {order.status === "ON_HOLD" && order.holdReason && (
         <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
-          <strong>{m.orders.holdReason}:</strong> {order.holdReason}
+          <strong>{m.orders.holdReason}:</strong> {localizeNote(order.holdReason, m)}
         </p>
       )}
       {order.status === "REJECTED" && order.rejectionReason && (
@@ -91,7 +92,7 @@ export default async function OrderDetailPage({
       )}
       {order.notes && (
         <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
-          <strong>{m.orders.shortNote}:</strong> {order.notes}
+          <strong>{m.orders.shortNote}:</strong> {localizeNote(order.notes, m)}
         </p>
       )}
 
@@ -194,7 +195,7 @@ export default async function OrderDetailPage({
                   {formatDateTime(e.createdAt, locale)} · {e.actorRole === "RETAILER" ? m.orders.byRetailer : m.orders.byDesk}
                 </span>
               </div>
-              {e.note && <p className="mt-1 text-sm text-slate-700">{e.note}</p>}
+              {e.note && <p className="mt-1 text-sm text-slate-700">{localizeNote(e.note, m)}</p>}
             </li>
           ))}
         </ol>

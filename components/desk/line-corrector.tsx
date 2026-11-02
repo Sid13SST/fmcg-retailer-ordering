@@ -29,6 +29,7 @@ export function LineCorrector({
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SkuHit[]>([]);
   const [searchError, setSearchError] = useState(false);
+  const [searchedFor, setSearchedFor] = useState("");
   const [sku, setSku] = useState<{ id: string; code: string; name: string }>({ id: line.skuId, code: line.skuCode, name: line.skuName });
   const [qty, setQty] = useState(line.qtyCases);
   const [reason, setReason] = useState("");
@@ -50,6 +51,7 @@ export function LineCorrector({
         .then((d: { skus?: SkuHit[] }) => {
           setSearchError(false);
           setHits(d.skus ?? []);
+          setSearchedFor(q);
         })
         .catch((err: Error) => {
           if (err.name !== "AbortError") setSearchError(true);
@@ -113,7 +115,7 @@ export function LineCorrector({
           className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
         />
         {searchError && <p role="alert" className="mt-1 text-xs text-red-700">SKU search failed. Check the connection and type again.</p>}
-        {!searchError && q.trim().length >= 2 && hits.length === 0 && <p className="mt-1 text-xs text-slate-500">No matching SKU.</p>}
+        {!searchError && searchedFor === q && q.trim().length >= 2 && hits.length === 0 && <p className="mt-1 text-xs text-slate-500">No matching SKU.</p>}
         {hits.length > 0 && (
           <ul className="mt-1 max-h-48 overflow-y-auto rounded-md bg-white ring-1 ring-slate-200">
             {hits.map((h) => (

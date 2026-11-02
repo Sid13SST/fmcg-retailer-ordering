@@ -186,3 +186,26 @@ describe("middleware: page routes", () => {
     expect((await refused.json()).code).toBe("INVALID_TRANSITION");
   });
 });
+
+describe("malformed ids are rejected before any query", () => {
+  const bad = ["../../etc/passwd", "x".repeat(65), "a b", "id;drop", ""];
+
+  it("retailer APIs answer 400", async () => {
+    await loginAs("RETAILER", ids.alice);
+    for (const id of bad) {
+      expect((await getOrder(req("/api/orders/x"), p({ id }))).status, id).toBe(400);
+      expect((await getCredit(req("/api/retailers/x/credit"), p({ id }))).status, id).toBe(400);
+    }
+  });
+
+  it("desk APIs answer 404 and change nothing", async () => {
+    await loginAs("ORDER_DESK", ids.desk);
+    const before = await db.order.findUniqueOrThrow({ where: { id: ids.aliceOrder }, include: { lines: true } });
+    for (const id of bad) {
+      expect((await approve(req("/x", json({})), p({ id }))).status, id).toBe(404);
+      expect((await correctLine(req("/x", { ...json({ qtyCases: 2 }), method: "PATCH" }), p({ id: ids.aliceOrder, lineId: id }))).status, id).toBe(404);
+    }
+    const after = await db.order.findUniqueOrThrow({ where: { id: ids.aliceOrder }, include: { lines: true } });
+    expect(after).toEqual(before);
+  });
+});

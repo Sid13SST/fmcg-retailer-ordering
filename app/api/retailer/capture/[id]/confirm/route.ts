@@ -3,6 +3,7 @@ import { requireRoleApi } from "@/lib/auth/require-role";
 import { confirmCaptureSchema } from "@/lib/capture/confirm-schema";
 import { confirmCapture } from "@/lib/capture/service";
 import { prisma } from "@/lib/db";
+import { parseId } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,8 @@ const STATUS_FOR_ERROR = {
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireRoleApi("RETAILER");
   if (auth.response) return auth.response;
-  const { id } = await params;
+  const id = parseId((await params).id);
+  if (!id) return NextResponse.json({ error: "CAPTURE_NOT_FOUND", code: "CAPTURE_NOT_FOUND" }, { status: 404 });
 
   const parsed = confirmCaptureSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

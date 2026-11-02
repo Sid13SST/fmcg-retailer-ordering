@@ -10,6 +10,7 @@ import { formatINR } from "@/lib/money";
 import { DemoGstNote } from "@/components/retailer/totals-card";
 import { gstBreakup } from "@/lib/orders/gst-breakup";
 import { localizeNote } from "@/lib/orders/system-notes";
+import { parseId } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +23,13 @@ export default async function OrderDetailPage({
 }) {
   const [{ id }, { placed }] = await Promise.all([params, searchParams]);
   const session = (await getSession())!;
+  const orderId = parseId(id);
+  if (!orderId) notFound();
   const { locale, m } = await getI18n();
 
   // Scoped to the logged-in retailer: another retailer's order is a 404.
   const order = await prisma.order.findFirst({
-    where: { id: id.slice(0, 64), retailerId: session.sub },
+    where: { id: orderId, retailerId: session.sub },
     include: {
       lines: { orderBy: { skuName: "asc" } },
       statusEvents: { orderBy: { createdAt: "asc" } },

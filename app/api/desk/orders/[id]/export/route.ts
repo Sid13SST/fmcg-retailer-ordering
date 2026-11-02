@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { requireRoleApi } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db";
 import { exportOrderToTally } from "@/lib/desk/actions";
-import { csvDownload, deskFailure } from "@/lib/desk/http";
+import { csvDownload, deskFailure, invalidId } from "@/lib/desk/http";
+import { parseId } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,9 @@ export const runtime = "nodejs";
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireRoleApi("ORDER_DESK");
   if (auth.response) return auth.response;
-  const result = await exportOrderToTally(prisma, (await params).id, { name: auth.session.name });
+  const id = parseId((await params).id);
+  if (!id) return invalidId();
+  const result = await exportOrderToTally(prisma, id, { name: auth.session.name });
   if (!result.ok) return deskFailure(result);
   return csvDownload(result.csv, result.fileName, { "X-Exported-Orders": result.orderNumbers.join(",") });
 }
@@ -19,7 +22,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireRoleApi("ORDER_DESK");
   if (auth.response) return auth.response;
-  const id = (await params).id;
+  const id = parseId((await params).id);
+  if (!id) return invalidId();
   const row = await prisma.tallyExport.findFirst({
     where: { orderId: id },
     orderBy: { exportedAt: "desc" },

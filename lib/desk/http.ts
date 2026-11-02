@@ -24,6 +24,11 @@ export function csvDownload(csv: string, fileName: string, extraHeaders: Record<
   });
 }
 
+/** Malformed id in the URL: same answer as an unknown order, without a query. */
+export function invalidId(): NextResponse {
+  return NextResponse.json({ error: "NOT_FOUND", code: "NOT_FOUND", message: "Order not found" }, { status: 404 });
+}
+
 export async function readJson(request: Request): Promise<unknown> {
   return request.json().catch(() => ({}));
 }

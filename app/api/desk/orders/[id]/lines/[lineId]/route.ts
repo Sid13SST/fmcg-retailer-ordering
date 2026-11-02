@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { requireRoleApi } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db";
 import { correctOrderLine } from "@/lib/desk/actions";
-import { deskFailure, invalidInput, readJson } from "@/lib/desk/http";
+import { deskFailure, invalidId, invalidInput, readJson } from "@/lib/desk/http";
 import { correctLineBodySchema } from "@/lib/desk/schemas";
+import { parseId } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -13,7 +14,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (auth.response) return auth.response;
   const body = correctLineBodySchema.safeParse(await readJson(request));
   if (!body.success) return invalidInput(body.error);
-  const { id, lineId } = await params;
+  const p = await params;
+  const id = parseId(p.id);
+  const lineId = parseId(p.lineId);
+  if (!id || !lineId) return invalidId();
   const result = await correctOrderLine(prisma, id, { name: auth.session.name }, { lineId, ...body.data });
   return result.ok ? NextResponse.json(result) : deskFailure(result);
 }

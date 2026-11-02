@@ -8,13 +8,16 @@ import { deskOrderDetail } from "@/lib/desk/queries";
 import { availableActions } from "@/lib/desk/transitions";
 import { formatINR } from "@/lib/money";
 import { availableCreditPaise } from "@/lib/pricing";
+import { parseId } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 type AuditEntry = { at: Date; who: string; title: string; detail: string | null; tone: string };
 
 export default async function DeskOrderReview({ params }: { params: Promise<{ id: string }> }) {
-  const order = await deskOrderDetail(prisma, (await params).id.slice(0, 64));
+  const id = parseId((await params).id);
+  if (!id) notFound();
+  const order = await deskOrderDetail(prisma, id);
   if (!order) notFound();
 
   const actions = availableActions(order.status);

@@ -113,25 +113,28 @@ model Scheme {
 }
 
 model Order {
-  id                   String        @id @default(cuid())
-  orderNumber          String        @unique
+  id                   String             @id @default(cuid())
+  orderNumber          String             @unique
   retailerId           String
-  retailer             Retailer      @relation(fields: [retailerId], references: [id])
-  status               OrderStatus   @default(DRAFT)
-  source               OrderSource   @default(CATALOG)
+  retailer             Retailer           @relation(fields: [retailerId], references: [id])
+  status               OrderStatus        @default(DRAFT)
+  source               OrderSource        @default(CATALOG)
   createdByRole        Role
   subtotalPaise        Int
-  discountPaise        Int           @default(0)
+  discountPaise        Int                @default(0)
   gstPaise             Int
   grandTotalPaise      Int
   holdReason           String?
   creditShortfallPaise Int?
   notes                String?
+  /// Client-generated idempotency key so a double tap on slow networks cannot create two orders.
+  clientRequestId      String?            @unique
   lines                OrderLine[]
+  statusEvents         OrderStatusEvent[]
   aiCaptures           AICapture[]
   tallyExports         TallyExport[]
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@index([retailerId, createdAt])
   @@index([status])
@@ -143,6 +146,11 @@ model OrderLine {
   order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   skuId           String
   sku             SKU     @relation(fields: [skuId], references: [id])
+  /// Snapshots so history stays correct if the catalogue changes later.
+  skuCode         String
+  skuName         String
+  caseSize        Int
+  gstRatePercent  Int
   qtyCases        Int
   unitPricePaise  Int
   freeCases       Int     @default(0)
@@ -154,6 +162,20 @@ model OrderLine {
   schemeLabel     String?
 
   @@index([orderId])
+}
+
+/// Audit trail of order status changes. fromStatus is null for the creation event.
+model OrderStatusEvent {
+  id         String       @id @default(cuid())
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actorRole  Role
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 model AICapture {

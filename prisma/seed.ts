@@ -168,6 +168,12 @@ const ALIASES: Array<{ phrase: string; code: string; retailer: string | null; us
   { phrase: "chhota biscuit", code: "SKU-BS-075", retailer: "agrawal", uses: 5 },
   { phrase: "bada paste", code: "SKU-TP-200", retailer: "jain", uses: 3 },
   { phrase: "shampoo pudiya", code: "SKU-SH-SAC", retailer: "khan", uses: 4 },
+  // Devanagari spellings, so the catalogue search works in Hindi script too.
+  { phrase: "बिस्कुट", code: "SKU-BS-075", retailer: null, uses: 3 },
+  { phrase: "सर्फ पाउडर", code: "SKU-DT-1KG", retailer: null, uses: 2 },
+  { phrase: "चाय पत्ती", code: "SKU-TE-250", retailer: null, uses: 3 },
+  { phrase: "साबुन", code: "SKU-SP-100", retailer: null, uses: 2 },
+  { phrase: "नमकीन", code: "SKU-NM-200", retailer: null, uses: 2 },
 ];
 
 const ORDER_COUNT = 40;
@@ -198,11 +204,30 @@ function statusForAge(daysAgo: number): OrderStatus {
   return r < 0.1 ? "REJECTED" : "CONFIRMED";
 }
 
+/** Plausible status trail for a seeded order: placed by the retailer, then desk action if any. */
+function statusHistory(status: OrderStatus, createdAt: Date, holdReason: string | null) {
+  const later = (hours: number) => new Date(createdAt.getTime() + hours * 60 * 60 * 1000);
+  if (status === "DRAFT") {
+    return [{ fromStatus: null, toStatus: "DRAFT" as const, actorRole: "RETAILER" as const, note: "Captured from WhatsApp text", createdAt }];
+  }
+  const placedAs: OrderStatus = status === "ON_HOLD" ? "ON_HOLD" : "PENDING_DESK_REVIEW";
+  const events: Array<{ fromStatus: OrderStatus | null; toStatus: OrderStatus; actorRole: "RETAILER" | "ORDER_DESK"; note: string | null; createdAt: Date }> = [
+    { fromStatus: null, toStatus: placedAs, actorRole: "RETAILER", note: holdReason, createdAt },
+  ];
+  if (status === "CONFIRMED") {
+    events.push({ fromStatus: placedAs, toStatus: "CONFIRMED", actorRole: "ORDER_DESK", note: null, createdAt: later(14) });
+  } else if (status === "REJECTED") {
+    events.push({ fromStatus: placedAs, toStatus: "REJECTED", actorRole: "ORDER_DESK", note: "Duplicate of an order placed via salesman", createdAt: later(15) });
+  }
+  return events;
+}
+
 async function main() {
   assertBriefSamplesVerbatim();
 
   // Clear in dependency order so the seed is re-runnable.
   await prisma.tallyExport.deleteMany();
+  await prisma.orderStatusEvent.deleteMany();
   await prisma.aICapture.deleteMany();
   await prisma.orderLine.deleteMany();
   await prisma.order.deleteMany();
@@ -366,6 +391,10 @@ async function main() {
         lines: {
           create: lines.map((l) => ({
             skuId: l.skuId,
+            skuCode: l.skuCode,
+            skuName: skuOf(l.skuCode).seed.name,
+            caseSize: skuOf(l.skuCode).seed.caseSize,
+            gstRatePercent: l.gstRatePercent,
             qtyCases: l.qtyCases,
             unitPricePaise: l.unitPricePaise,
             freeCases: l.freeCases,
@@ -377,6 +406,7 @@ async function main() {
             schemeLabel: l.schemeLabel,
           })),
         },
+        statusEvents: { create: statusHistory(status, createdAt, holdReason) },
       },
     });
 
@@ -413,6 +443,7 @@ async function main() {
     orders: await prisma.order.count(),
     aiCaptures: await prisma.aICapture.count(),
     aliases: await prisma.alias.count(),
+    statusEvents: await prisma.orderStatusEvent.count(),
   };
   console.log("Seeded Kirana OrderDesk:", counts);
 }

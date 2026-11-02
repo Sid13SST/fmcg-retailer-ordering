@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { AddToCart } from "@/components/retailer/add-to-cart";
+import { CatalogueCartBar } from "@/components/retailer/cart-bar";
 import { SchemeBadge, StockBadge, stockLevel } from "@/components/retailer/badges";
 import { getSession } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
@@ -89,7 +90,7 @@ export default async function CataloguePage({
           type="search"
           defaultValue={q}
           placeholder={m.catalogue.searchPlaceholder}
-          className="h-12 flex-1 rounded-md border border-slate-300 px-3 text-base"
+          className="field sm:flex-1"
         />
         <div className="flex gap-2">
           <label htmlFor="cat" className="sr-only">
@@ -99,7 +100,7 @@ export default async function CataloguePage({
             id="cat"
             name="cat"
             defaultValue={cat ?? ""}
-            className="h-12 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 text-base"
+            className="field min-w-0 flex-1 px-2"
           >
             <option value="">{m.catalogue.allCategories}</option>
             {categories.map((c) => (
@@ -108,7 +109,7 @@ export default async function CataloguePage({
               </option>
             ))}
           </select>
-          <button type="submit" className="h-12 rounded-md bg-slate-900 px-5 text-base font-semibold text-white">
+          <button type="submit" className="btn btn-lg btn-dark px-5">
             {m.catalogue.search}
           </button>
         </div>
@@ -172,7 +173,7 @@ export default async function CataloguePage({
                 </div>
                 <div className="mt-auto flex items-end justify-between gap-2">
                   <div>
-                    <p className="text-lg font-bold tabular-nums">{formatINR(s.dealerPricePerCasePaise)}</p>
+                    <p className="price">{formatINR(s.dealerPricePerCasePaise)}</p>
                     <p className="text-xs text-slate-600">
                       {fmt(m.common.perCaseOf, { n: s.caseSize })} · {m.common.exclGst}
                     </p>
@@ -184,6 +185,11 @@ export default async function CataloguePage({
           })}
         </ul>
       )}
+
+      <CatalogueCartBar
+        cta={m.cart.viewCart}
+        labels={{ itemsOne: m.orders.itemsOne, itemsMany: m.orders.itemsMany, total: m.cart.barTotal, updating: m.cart.updating }}
+      />
     </main>
   );
 }

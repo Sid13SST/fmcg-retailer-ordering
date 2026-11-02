@@ -6,7 +6,7 @@ export default async function CartPage() {
   return (
     <main>
       <h1 className="mb-1 text-xl font-bold">{m.cart.title}</h1>
-      <CartView m={{ cart: m.cart, common: m.common, catalogue: m.catalogue }} />
+      <CartView m={{ cart: m.cart, common: m.common, catalogue: m.catalogue, orders: m.orders }} />
     </main>
   );
 }

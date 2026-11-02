@@ -1,17 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart } from "@/lib/cart/cart-store";
 import { useQuote } from "@/lib/cart/use-quote";
 import { fmt } from "@/lib/i18n-format";
+import type { Messages } from "@/lib/i18n";
 import { formatINR } from "@/lib/money";
+import { CartSummaryBar } from "./cart-bar";
 import { LineMoney, SchemeChips, unavailableText, type CartLineMessages } from "./cart-line";
 import { QtyStepper } from "./qty-stepper";
 import { EmptyState, ErrorPanel, SkeletonList } from "./states";
 import { TotalsCard } from "./totals-card";
 
-export function CartView({ m }: { m: CartLineMessages }) {
+export function CartView({ m }: { m: CartLineMessages & Pick<Messages, "orders"> }) {
   const cart = useCart();
   const { state, refresh } = useQuote(cart.items);
   const [removedNotice, setRemovedNotice] = useState(false);
@@ -99,12 +100,14 @@ export function CartView({ m }: { m: CartLineMessages }) {
 
       <TotalsCard totals={quote.totals} m={m} />
 
-      <Link
+      <CartSummaryBar
+        itemCount={quote.lines.length}
+        totalPaise={quote.totals.grandTotalPaise}
+        updating={updating}
         href="/retailer/checkout"
-        className="mt-4 flex min-h-12 items-center justify-center rounded-md bg-brand-600 text-base font-semibold text-white active:bg-brand-700"
-      >
-        {m.cart.checkout} →
-      </Link>
+        cta={m.cart.checkoutShort}
+        labels={{ itemsOne: m.orders.itemsOne, itemsMany: m.orders.itemsMany, total: m.cart.barTotal, updating: m.cart.updating }}
+      />
     </div>
   );
 }

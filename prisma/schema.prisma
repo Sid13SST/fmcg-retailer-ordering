@@ -1,0 +1,212 @@
+// Kirana OrderDesk — data model.
+// All money is stored as integer paise (INR). Never store rupees as floats.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Who is acting. Extensible: SALESMAN will be added in a later chunk.
+enum Role {
+  RETAILER
+  ORDER_DESK
+}
+
+enum SchemeType {
+  BUY_X_GET_Y_FREE
+  SLAB_PERCENT_OFF
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_DESK_REVIEW
+  ON_HOLD
+  CONFIRMED
+  EXPORTED
+  REJECTED
+}
+
+enum OrderSource {
+  CATALOG
+  AI_TEXT
+}
+
+enum AICaptureStatus {
+  PENDING
+  PARSED
+  CONFIRMED
+  DISCARDED
+}
+
+model Salesman {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String     @unique
+  beat      String
+  retailers Retailer[]
+  createdAt DateTime   @default(now())
+}
+
+model DeskUser {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Retailer {
+  id               String                  @id @default(cuid())
+  name             String
+  shopName         String
+  phone            String                  @unique
+  area             String
+  creditLimitPaise Int
+  creditUsedPaise  Int                     @default(0)
+  salesmanId       String?
+  salesman         Salesman?               @relation(fields: [salesmanId], references: [id])
+  orders           Order[]
+  aiCaptures       AICapture[]
+  aliases          Alias[]
+  priceOverrides   RetailerPriceOverride[]
+  createdAt        DateTime                @default(now())
+}
+
+model SKU {
+  id                      String                  @id @default(cuid())
+  code                    String                  @unique
+  name                    String
+  brand                   String
+  category                String
+  caseSize                Int
+  dealerPricePerCasePaise Int
+  gstRatePercent          Int
+  stockCases              Int
+  imageEmoji              String?
+  imageUrl                String?
+  active                  Boolean                 @default(true)
+  schemes                 Scheme[]
+  orderLines              OrderLine[]
+  aliases                 Alias[]
+  priceOverrides          RetailerPriceOverride[]
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+}
+
+/// At most one ACTIVE scheme per SKU (assumption A3); enforced in the seed and
+/// application layer since SQLite cannot express a partial unique index via Prisma.
+model Scheme {
+  id             String     @id @default(cuid())
+  skuId          String
+  sku            SKU        @relation(fields: [skuId], references: [id])
+  type           SchemeType
+  thresholdCases Int
+  freeCases      Int        @default(0)
+  percentOff     Float      @default(0)
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+
+  @@index([skuId, active])
+}
+
+model Order {
+  id                   String        @id @default(cuid())
+  orderNumber          String        @unique
+  retailerId           String
+  retailer             Retailer      @relation(fields: [retailerId], references: [id])
+  status               OrderStatus   @default(DRAFT)
+  source               OrderSource   @default(CATALOG)
+  createdByRole        Role
+  subtotalPaise        Int
+  discountPaise        Int           @default(0)
+  gstPaise             Int
+  grandTotalPaise      Int
+  holdReason           String?
+  creditShortfallPaise Int?
+  notes                String?
+  lines                OrderLine[]
+  aiCaptures           AICapture[]
+  tallyExports         TallyExport[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([retailerId, createdAt])
+  @@index([status])
+}
+
+model OrderLine {
+  id              String  @id @default(cuid())
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  skuId           String
+  sku             SKU     @relation(fields: [skuId], references: [id])
+  qtyCases        Int
+  unitPricePaise  Int
+  freeCases       Int     @default(0)
+  discountPercent Float   @default(0)
+  discountPaise   Int     @default(0)
+  subtotalPaise   Int
+  gstPaise        Int
+  totalPaise      Int
+  schemeLabel     String?
+
+  @@index([orderId])
+}
+
+model AICapture {
+  id               String          @id @default(cuid())
+  retailerId       String
+  retailer         Retailer        @relation(fields: [retailerId], references: [id])
+  rawText          String
+  /// JSON string (SQLite has no native JSON column in Prisma).
+  parsedJson       String?
+  status           AICaptureStatus @default(PENDING)
+  confirmedOrderId String?
+  confirmedOrder   Order?          @relation(fields: [confirmedOrderId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([retailerId, createdAt])
+}
+
+/// A phrase a retailer uses for a SKU ("peti biscuit" -> SKU-BS-075).
+/// retailerId = null means a distributor-wide alias.
+model Alias {
+  id         String    @id @default(cuid())
+  retailerId String?
+  retailer   Retailer? @relation(fields: [retailerId], references: [id])
+  phrase     String
+  skuId      String
+  sku        SKU       @relation(fields: [skuId], references: [id])
+  usageCount Int       @default(1)
+  createdAt  DateTime  @default(now())
+
+  @@unique([retailerId, phrase])
+  @@index([phrase])
+}
+
+model TallyExport {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  exportedAt DateTime @default(now())
+  csvPayload String
+
+  @@index([orderId])
+}
+
+/// Stub for per-retailer pricing (assumption A6). Not used by any logic yet.
+model RetailerPriceOverride {
+  id                      String   @id @default(cuid())
+  retailerId              String
+  retailer                Retailer @relation(fields: [retailerId], references: [id])
+  skuId                   String
+  sku                     SKU      @relation(fields: [skuId], references: [id])
+  dealerPricePerCasePaise Int
+  createdAt               DateTime @default(now())
+
+  @@unique([retailerId, skuId])
+}

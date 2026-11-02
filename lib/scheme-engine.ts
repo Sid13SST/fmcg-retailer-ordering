@@ -182,3 +182,23 @@ export function priceLine(
     schemeHint,
   };
 }
+
+/** Free cases earned for a quantity under a scheme (0 for none/inactive/slab). */
+export function freeCasesFor(qtyCases: number, scheme: SchemeForPricing | null | undefined): number {
+  if (!scheme || !scheme.active || scheme.type !== "BUY_X_GET_Y_FREE") return 0;
+  return Math.floor(qtyCases / scheme.thresholdCases) * scheme.freeCases;
+}
+
+/**
+ * Largest quantity <= requested whose shipped cases (ordered + free, A4) fit in
+ * stock. Used to offer a short-confirm when stock is insufficient. 0 if none.
+ */
+export function maxOrderableCases(
+  sku: Pick<SkuForPricing, "stockCases">,
+  requestedCases: number,
+  scheme?: SchemeForPricing | null,
+): number {
+  let qty = Math.min(qtyCasesSchema.parse(requestedCases), sku.stockCases);
+  while (qty > 0 && qty + freeCasesFor(qty, scheme) > sku.stockCases) qty -= 1;
+  return qty;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeScheme, priceLine } from "@/lib/scheme-engine";
+import { describeScheme, maxOrderableCases, priceLine } from "@/lib/scheme-engine";
 import { biscuit, biscuitScheme, detergent, detergentScheme, tea } from "./fixtures";
 
 describe("free-goods scheme (Buy 10 cases get 1 free)", () => {
@@ -141,5 +141,25 @@ describe("stock", () => {
 
   it("ordering exactly the stock is fine", () => {
     expect(priceLine(detergent, 85, detergentScheme).orderable).toBe(true);
+  });
+});
+
+describe("maxOrderableCases", () => {
+  it("returns the request when it fits", () => {
+    expect(maxOrderableCases(detergent, 10, detergentScheme)).toBe(10);
+  });
+  it("caps at stock for no-scheme / slab SKUs", () => {
+    expect(maxOrderableCases(detergent, 100, detergentScheme)).toBe(85);
+  });
+  it("leaves room for free cases (A4)", () => {
+    // stock 10: 10 ordered would ship 11, so 9 is the max
+    expect(maxOrderableCases({ stockCases: 10 }, 10, biscuitScheme)).toBe(9);
+    // stock 11: 10 + 1 free fits exactly
+    expect(maxOrderableCases({ stockCases: 11 }, 15, biscuitScheme)).toBe(10);
+    // stock 340: 310 would ship 341; 309 ships 339
+    expect(maxOrderableCases(biscuit, 340, biscuitScheme)).toBe(309);
+  });
+  it("is 0 when out of stock", () => {
+    expect(maxOrderableCases(tea, 5)).toBe(0);
   });
 });

@@ -8,5 +8,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    globalSetup: ["tests/setup/global-setup.ts"],
+    // Integration tests share one SQLite file; run files one at a time.
+    fileParallelism: false,
   },
 });

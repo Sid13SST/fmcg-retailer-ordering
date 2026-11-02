@@ -3,7 +3,8 @@
 Retailer ordering web app for an FMCG distributor in Jabalpur serving ~1,800 kirana
 shops through 18 salesmen. Retailers see the catalogue with live stock, their dealer
 price and the current scheme, and order in a minute; the order desk reviews orders,
-manages credit holds and exports to Tally (mocked). Retailers can also paste a WhatsApp-style
+corrects AI-mapped lines (teaching the retailer's aliases), manages credit holds and exports
+to Tally (mocked CSV). Retailers can also paste a WhatsApp-style
 Hinglish text order; AI (or an offline parser) turns it into lines that the retailer checks
 and confirms.
 
@@ -153,11 +154,54 @@ Hard rules are enforced on the server too: a confirmation must account for every
 Live check of the Gemini path: `npx tsx scripts/gemini-smoke.ts` (needs `GEMINI_API_KEY` or
 `GEMINI_VIA_PROXY=1`; prints HTTP status and parsed JSON, never the key).
 
+## Order desk (chunk 4)
+
+Log in as the desk (`9000000001`, OTP `123456`):
+
+- **Dashboard** (`/desk`): incoming orders newest first with retailer, source badge
+  (*Catalogue* / *AI capture*), total incl. GST and credit status (*Within limit* / *Over by ₹X*);
+  filter by status; tiles for pending review, on credit hold, approved-not-exported and exported
+  today (IST, A24). Side panel: retailers with **no order in 14 days** (seed: Khan Daily Needs,
+  Chourasia Kirana Store).
+- **Review** (`/desk/orders/[id]`): full order with the retailer's credit. AI-captured orders
+  show the original message and, per line, the words the retailer wrote next to the mapped SKU.
+  The desk can **approve**, **put on hold** (reason), **reject** (reason, shown to the retailer;
+  stock returned) or **correct a line** (swap SKU via search and/or change cases). A correction
+  reprices the line at today's catalogue (A21), re-checks credit (A25) and, on AI lines,
+  **upserts the retailer's alias** for those words (A26). Status changes and corrections appear
+  in one audit trail with the desk user's name.
+- **Credit holds**: on-hold orders show the live shortfall; approving one opens a confirm dialog
+  ("Retailer will exceed credit limit by ₹X"). The server refuses approval unless the client
+  sends that exact current shortfall (A22).
+- **Tally export (mocked, A8/A28)**: *Export to Tally* on an approved order downloads a CSV
+  (Voucher Type, Voucher No, Date, Debtor/Retailer, Item, Qty, Rate, Discount, Amount, GST,
+  Ledger), stores it in `TallyExport` and marks the order EXPORTED. *Export today's approved*
+  on the dashboard downloads one CSV for every order approved today (A27).
+- **Transitions are enforced server-side** (`lib/desk/transitions.ts`, A23): only pending or
+  on-hold orders can be approved, only approved orders exported; rejected and exported orders
+  are final. A conditional update means two desk users cannot act on the same order at once.
+
+Demo path: order **KOD-00043** (Shri Ram Kirana, AI capture) maps "6 peti biscuit bada" to the
+75 g glucose biscuit. Correct it to Marie biscuit 150 g (`SKU-BS-150`), approve, export; the
+retailer (`9827000004`) then sees *Sent to billing* and the desk's change on the order.
+
+### APIs and access control
+
+| Route | Who |
+|-------|-----|
+| `POST /api/desk/orders/[id]/{approve,hold,reject,export}`, `PATCH /api/desk/orders/[id]/lines/[lineId]`, `POST /api/desk/exports/today`, `GET /api/desk/sku-search` | ORDER_DESK only (retailer → 403, anonymous → 401) |
+| `GET /api/orders/[id]`, `GET /api/retailers/[id]/{orders,credit,prices}` | that retailer or the desk; another retailer → 403 (A29) |
+
+`tests/access-control.test.ts` runs the real route handlers and middleware against the test
+database: a retailer gets 403 for another retailer's orders, prices and credit and for every desk
+API, is redirected away from `/desk`, and anonymous page requests are redirected to `/login`.
+
 ## Project structure
 
 ```
 app/            Next.js routes (login, /retailer/*, /desk, /api/auth/*, /api/retailer/*, /api/locale)
-                incl. /retailer/capture and /api/retailer/capture, /api/retailer/sku-search
+                incl. /retailer/capture and /api/retailer/capture, /api/retailer/sku-search,
+                /desk/orders/[id], /api/desk/*, /api/orders/[id], /api/retailers/[id]/*
 components/     React UI components
 lib/            Pure domain logic and server helpers
   money.ts          integer-paise helpers, half-up rounding, INR formatting
@@ -167,14 +211,16 @@ lib/            Pure domain logic and server helpers
   hinglish.ts       normalization, number/unit words, Levenshtein
   sku-matcher.ts    phrase -> SKU candidates, heuristic confidence, alternatives
   capture/          capture pipeline, confirm schema, DB service (parse, confirm, alias learning)
+  desk/             desk transitions, actions (approve/hold/reject/correct/export), queries,
+                    mocked Tally CSV, IST day helpers
   orders/           cart schema, server quote, transactional order creation, GST breakup
   cart/             browser cart store and quote hook (client)
   i18n.ts           English/Hindi dictionary
-  auth/             session signing, roles/route guard, phone validation
+  auth/             session signing, roles/route guard, retailer data access rule, phone validation
   otp/              OtpProvider interface + MockOtpProvider
 prisma/         schema, migrations, deterministic seed (static data in seed-data.ts)
 scripts/        gemini-smoke.ts live check
-tests/          Vitest unit tests
+tests/          Vitest unit + integration tests (desk actions, access control)
 middleware.ts   role guard for /retailer/* and /desk/*
 ```
 
@@ -198,9 +244,11 @@ amount as a demo rate and totals carry a footnote; confirm real rates before bil
 
 4 fictional brands (Narmada Foods, Shubh Home Care, Satpura Beverages, Rewa Personal Care),
 24 SKUs including the three brief samples verbatim (`SKU-BS-075`, `SKU-DT-1KG`, `SKU-TE-250`),
-6 active schemes + 1 expired, 10 retailers, 3 salesmen, 2 desk users, 17 phrase aliases
-(e.g. "peti biscuit" → `SKU-BS-075`) and 40 past orders over the last 30 days, some captured
-from AI text and some on credit hold.
+6 active schemes + 1 expired, 10 retailers, 3 salesmen, 2 desk users, 22 phrase aliases
+(e.g. "peti biscuit" → `SKU-BS-075`) and 43 orders over the last 30 days: some captured from AI
+text (with the retailer's words on each line), some on credit hold, approved orders older than
+5 days already exported to Tally (with stored CSV), two retailers silent for 14+ days and one
+fresh AI order with a deliberately mis-mapped line for the desk demo.
 
 ## Deployment notes
 
@@ -214,5 +262,5 @@ the optional Gemini key and production steps are in [deployment.md](./deployment
 1. Foundation: schema, seed, scheme engine, pricing, auth
 2. Retailer catalogue, cart, checkout, order history (done)
 3. AI text order capture with confidence, alternatives, human confirmation and alias learning (done)
-4. Order desk dashboard, corrections, credit holds, Tally CSV export
+4. Order desk dashboard, corrections, credit holds, Tally CSV export (done)
 5. UI polish, Hindi/English labels, loading/empty/error states, deployment guide

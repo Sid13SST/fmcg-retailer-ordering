@@ -66,6 +66,10 @@ Login is phone number + OTP. **The OTP is always `123456`** (mocked, see A7); no
 sessions (`middleware.ts`); other roles are redirected to their own home, anonymous
 users to `/login`.
 
+## Screenshots
+
+Viewport shots of the seeded demo (catalogue + cart bar, AI capture result, desk review, credit-hold dialog, 360px catalogue, desk dashboard) are in [`docs/screenshots/`](docs/screenshots/).
+
 ## Architecture
 
 ```

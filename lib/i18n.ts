@@ -1,0 +1,328 @@
+/**
+ * English/Hindi UI strings. English is the default. Server components resolve the
+ * locale from a cookie and pass only the strings a client component needs as props,
+ * so dictionaries never ship to the browser.
+ */
+import { z } from "zod";
+import { fmt } from "./i18n-format";
+import type { SchemeForPricing } from "./scheme-engine";
+
+export const LOCALES = ["en", "hi"] as const;
+export type Locale = (typeof LOCALES)[number];
+export const DEFAULT_LOCALE: Locale = "en";
+export const LOCALE_COOKIE = "kod_lang";
+export const localeSchema = z.enum(LOCALES);
+
+const en = {
+  nav: {
+    catalogue: "Catalogue",
+    cart: "Cart",
+    orders: "My orders",
+    logout: "Log out",
+    switchTo: "हिंदी",
+    switchToLabel: "Switch language to Hindi",
+  },
+  common: {
+    exclGst: "excl. GST",
+    perCaseOf: "per case of {n}",
+    caseOne: "{n} case",
+    caseMany: "{n} cases",
+    loading: "Loading…",
+    retry: "Try again",
+    back: "Back",
+    errorTitle: "Something went wrong",
+    errorBody: "Please check your connection and try again.",
+    networkError: "Could not reach the server. Check your connection and try again.",
+    sessionExpired: "Your session has expired. Please log in again.",
+  },
+  credit: {
+    title: "Credit",
+    limit: "Credit limit",
+    used: "Credit used",
+    available: "Available credit",
+  },
+  catalogue: {
+    title: "Catalogue",
+    searchPlaceholder: "Search name, brand or your word (e.g. peti biscuit)",
+    searchLabel: "Search products",
+    search: "Search",
+    category: "Category",
+    allCategories: "All categories",
+    inStock: "In stock",
+    lowStock: "Low stock · {n} left",
+    outOfStock: "Out of stock",
+    add: "Add",
+    notAvailable: "Not available",
+    matchedAlias: "Matches “{phrase}”",
+    resultsOne: "{n} product",
+    resultsMany: "{n} products",
+    noResults: "No products found",
+    noResultsHint: "Try another word, or clear the search to see everything.",
+    clearSearch: "Clear search",
+    decrease: "Remove one case",
+    increase: "Add one case",
+    qtyLabel: "Cases",
+    inCart: "In cart",
+  },
+  cart: {
+    title: "Cart",
+    empty: "Your cart is empty",
+    emptyHint: "Add products from the catalogue. Everything is ordered in cases.",
+    browse: "Browse catalogue",
+    remove: "Remove",
+    freeOne: "+{n} case FREE",
+    freeMany: "+{n} cases FREE",
+    slabApplied: "{p}% slab applied",
+    ships: "Ships {n} cases",
+    gross: "Gross",
+    discount: "Scheme discount",
+    subtotal: "Subtotal (excl. GST)",
+    gstAt: "GST {r}%",
+    gst: "GST",
+    lineTotal: "Line total",
+    grandTotal: "Grand total (incl. GST)",
+    totalCases: "Total cases",
+    freeCasesTotal: "Free cases",
+    checkout: "Continue to checkout",
+    updating: "Updating prices…",
+    unavailable: "Cannot be ordered",
+    onlyAvailable: "Only {n} can be supplied now",
+    removedItems: "Some items are no longer sold and were removed from your cart.",
+  },
+  checkout: {
+    title: "Confirm order",
+    items: "Items",
+    creditImpact: "Credit impact",
+    currentUsed: "Current credit used",
+    thisOrder: "This order",
+    availableNow: "Available credit now",
+    remainingAfter: "Remaining limit after this order",
+    overLimit:
+      "This order is {x} over your available credit. It will be sent to the desk for credit approval — it is not rejected.",
+    withinLimit: "This order is within your credit limit.",
+    place: "Place order",
+    placeHold: "Send to desk for credit approval",
+    placing: "Placing order…",
+    stockTitle: "Some items are short on stock",
+    stockBody: "You can place the order with the quantities we can supply now, or change your cart.",
+    stockLine: "{name}: asked {req}, can supply {avail}",
+    acceptShort: "Place with available quantities",
+    editCart: "Change cart",
+    nothingOrderable: "None of these items can be supplied right now. Please change your cart.",
+    stockChanged: "Stock changed while placing your order. Prices and stock have been refreshed — please review.",
+    unknownSku: "Some items are no longer sold and were removed. Please review.",
+    afterShort: "Total if placed with available quantities",
+  },
+  orders: {
+    title: "My orders",
+    empty: "No orders yet",
+    emptyHint: "Orders you place will appear here with their status.",
+    placedOn: "Placed {date}",
+    itemsOne: "{n} item",
+    itemsMany: "{n} items",
+    viaWhatsapp: "From WhatsApp text",
+    detailTitle: "Order {no}",
+    placedBanner: "Order {no} placed. The order desk will review it.",
+    holdBanner: "Order {no} was sent to the desk for credit approval.",
+    holdReason: "On credit hold",
+    shortNote: "Note",
+    lines: "Items",
+    free: "free",
+    unitPrice: "{price} per case of {n} ({gst})",
+    gstBreakup: "GST breakup",
+    taxable: "Taxable value",
+    rate: "Rate",
+    tax: "GST",
+    totals: "Totals",
+    history: "Status history",
+    byRetailer: "by you",
+    byDesk: "by order desk",
+    notFound: "Order not found",
+    backToOrders: "Back to my orders",
+  },
+  status: {
+    DRAFT: "Draft",
+    PENDING_DESK_REVIEW: "Awaiting desk review",
+    ON_HOLD: "On credit hold",
+    CONFIRMED: "Confirmed",
+    EXPORTED: "Sent to billing",
+    REJECTED: "Rejected",
+  },
+  scheme: {
+    buyGet: "Buy {x} get {y} free",
+    slab: "{p}% off on {x}+ cases",
+  },
+};
+
+export type Messages = typeof en;
+
+const hi: Messages = {
+  nav: {
+    catalogue: "सामान",
+    cart: "कार्ट",
+    orders: "मेरे ऑर्डर",
+    logout: "लॉग आउट",
+    switchTo: "English",
+    switchToLabel: "भाषा अंग्रेज़ी करें",
+  },
+  common: {
+    exclGst: "GST अलग",
+    perCaseOf: "प्रति पेटी ({n} नग)",
+    caseOne: "{n} पेटी",
+    caseMany: "{n} पेटी",
+    loading: "लोड हो रहा है…",
+    retry: "फिर से कोशिश करें",
+    back: "वापस",
+    errorTitle: "कुछ गड़बड़ हो गई",
+    errorBody: "कृपया इंटरनेट जाँचें और फिर से कोशिश करें।",
+    networkError: "सर्वर से जुड़ नहीं पाए। इंटरनेट जाँचें और फिर से कोशिश करें।",
+    sessionExpired: "आपका सत्र समाप्त हो गया है। कृपया फिर से लॉग इन करें।",
+  },
+  credit: {
+    title: "उधार",
+    limit: "उधार सीमा",
+    used: "इस्तेमाल हुआ उधार",
+    available: "बचा हुआ उधार",
+  },
+  catalogue: {
+    title: "सामान",
+    searchPlaceholder: "नाम, ब्रांड या अपना शब्द लिखें (जैसे peti biscuit)",
+    searchLabel: "सामान खोजें",
+    search: "खोजें",
+    category: "श्रेणी",
+    allCategories: "सभी श्रेणियाँ",
+    inStock: "स्टॉक में",
+    lowStock: "कम स्टॉक · {n} बचे",
+    outOfStock: "स्टॉक ख़त्म",
+    add: "जोड़ें",
+    notAvailable: "उपलब्ध नहीं",
+    matchedAlias: "“{phrase}” से मिला",
+    resultsOne: "{n} सामान",
+    resultsMany: "{n} सामान",
+    noResults: "कोई सामान नहीं मिला",
+    noResultsHint: "कोई दूसरा शब्द आज़माएँ, या खोज हटाकर सब देखें।",
+    clearSearch: "खोज हटाएँ",
+    decrease: "एक पेटी कम करें",
+    increase: "एक पेटी बढ़ाएँ",
+    qtyLabel: "पेटी",
+    inCart: "कार्ट में",
+  },
+  cart: {
+    title: "कार्ट",
+    empty: "आपका कार्ट खाली है",
+    emptyHint: "सामान सूची से जोड़ें। सारा ऑर्डर पेटी में होता है।",
+    browse: "सामान देखें",
+    remove: "हटाएँ",
+    freeOne: "+{n} पेटी मुफ़्त",
+    freeMany: "+{n} पेटी मुफ़्त",
+    slabApplied: "{p}% स्लैब छूट लागू",
+    ships: "कुल {n} पेटी भेजी जाएँगी",
+    gross: "कुल राशि",
+    discount: "स्कीम छूट",
+    subtotal: "उप-योग (GST अलग)",
+    gstAt: "GST {r}%",
+    gst: "GST",
+    lineTotal: "लाइन योग",
+    grandTotal: "कुल योग (GST सहित)",
+    totalCases: "कुल पेटी",
+    freeCasesTotal: "मुफ़्त पेटी",
+    checkout: "आगे बढ़ें",
+    updating: "दाम अपडेट हो रहे हैं…",
+    unavailable: "ऑर्डर नहीं हो सकता",
+    onlyAvailable: "अभी सिर्फ़ {n} मिल सकती हैं",
+    removedItems: "कुछ सामान अब नहीं बिकते, उन्हें कार्ट से हटा दिया गया।",
+  },
+  checkout: {
+    title: "ऑर्डर पक्का करें",
+    items: "सामान",
+    creditImpact: "उधार पर असर",
+    currentUsed: "अभी इस्तेमाल हुआ उधार",
+    thisOrder: "यह ऑर्डर",
+    availableNow: "अभी बचा उधार",
+    remainingAfter: "इस ऑर्डर के बाद बची सीमा",
+    overLimit:
+      "यह ऑर्डर आपके बचे उधार से {x} ज़्यादा है। इसे उधार मंज़ूरी के लिए डेस्क को भेजा जाएगा — यह रद्द नहीं होगा।",
+    withinLimit: "यह ऑर्डर आपकी उधार सीमा के अंदर है।",
+    place: "ऑर्डर करें",
+    placeHold: "उधार मंज़ूरी के लिए डेस्क को भेजें",
+    placing: "ऑर्डर हो रहा है…",
+    stockTitle: "कुछ सामान का स्टॉक कम है",
+    stockBody: "जितना अभी मिल सकता है उतने का ऑर्डर करें, या कार्ट बदलें।",
+    stockLine: "{name}: माँगी {req}, मिल सकती {avail}",
+    acceptShort: "उपलब्ध मात्रा से ऑर्डर करें",
+    editCart: "कार्ट बदलें",
+    nothingOrderable: "इनमें से कोई सामान अभी नहीं मिल सकता। कृपया कार्ट बदलें।",
+    stockChanged: "ऑर्डर करते समय स्टॉक बदल गया। दाम और स्टॉक ताज़ा कर दिए गए हैं — कृपया देख लें।",
+    unknownSku: "कुछ सामान अब नहीं बिकते, उन्हें हटा दिया गया। कृपया देख लें।",
+    afterShort: "उपलब्ध मात्रा से ऑर्डर करने पर कुल",
+  },
+  orders: {
+    title: "मेरे ऑर्डर",
+    empty: "अभी कोई ऑर्डर नहीं",
+    emptyHint: "आपके ऑर्डर यहाँ उनकी स्थिति के साथ दिखेंगे।",
+    placedOn: "{date} को किया",
+    itemsOne: "{n} सामान",
+    itemsMany: "{n} सामान",
+    viaWhatsapp: "WhatsApp संदेश से",
+    detailTitle: "ऑर्डर {no}",
+    placedBanner: "ऑर्डर {no} हो गया। ऑर्डर डेस्क इसे जाँचेगी।",
+    holdBanner: "ऑर्डर {no} उधार मंज़ूरी के लिए डेस्क को भेजा गया।",
+    holdReason: "उधार रोक पर",
+    shortNote: "नोट",
+    lines: "सामान",
+    free: "मुफ़्त",
+    unitPrice: "{price} प्रति पेटी ({n} नग) ({gst})",
+    gstBreakup: "GST विवरण",
+    taxable: "कर योग्य राशि",
+    rate: "दर",
+    tax: "GST",
+    totals: "योग",
+    history: "स्थिति इतिहास",
+    byRetailer: "आपके द्वारा",
+    byDesk: "ऑर्डर डेस्क द्वारा",
+    notFound: "ऑर्डर नहीं मिला",
+    backToOrders: "मेरे ऑर्डर पर वापस",
+  },
+  status: {
+    DRAFT: "ड्राफ़्ट",
+    PENDING_DESK_REVIEW: "डेस्क जाँच बाकी",
+    ON_HOLD: "उधार रोक पर",
+    CONFIRMED: "पक्का",
+    EXPORTED: "बिलिंग को भेजा",
+    REJECTED: "रद्द",
+  },
+  scheme: {
+    buyGet: "{x} पेटी पर {y} मुफ़्त",
+    slab: "{x}+ पेटी पर {p}% छूट",
+  },
+};
+
+const DICTIONARIES: Record<Locale, Messages> = { en, hi };
+
+export function getMessages(locale: Locale): Messages {
+  return DICTIONARIES[locale];
+}
+
+export function parseLocale(value: string | undefined | null): Locale {
+  const parsed = localeSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_LOCALE;
+}
+
+/** Short scheme badge text, e.g. "Buy 10 get 1 free" / "10 पेटी पर 1 मुफ़्त". */
+export function schemeBadge(m: Messages, scheme: Pick<SchemeForPricing, "type" | "thresholdCases" | "freeCases" | "percentOff">): string {
+  return scheme.type === "BUY_X_GET_Y_FREE"
+    ? fmt(m.scheme.buyGet, { x: scheme.thresholdCases, y: scheme.freeCases })
+    : fmt(m.scheme.slab, { x: scheme.thresholdCases, p: scheme.percentOff });
+}
+
+export function dateLocale(locale: Locale): string {
+  return locale === "hi" ? "hi-IN" : "en-IN";
+}
+
+export function formatDateTime(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(dateLocale(locale), {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Kolkata",
+  }).format(date);
+}

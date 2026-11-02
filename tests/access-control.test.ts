@@ -209,3 +209,19 @@ describe("malformed ids are rejected before any query", () => {
     expect(after).toEqual(before);
   });
 });
+
+describe("middleware: cross-site API writes", () => {
+  const call = (method: string, origin?: string) =>
+    middleware(new NextRequest("http://localhost/api/retailer/orders", { method, headers: { host: "localhost", ...(origin ? { origin } : {}) } }));
+
+  it("refuses a POST from another origin", async () => {
+    const res = await call("POST", "https://evil.example");
+    expect(res.status).toBe(403);
+  });
+
+  it("allows same-origin, origin-less and read requests", async () => {
+    expect((await call("POST", "http://localhost")).headers.get("x-middleware-next")).toBe("1");
+    expect((await call("POST")).headers.get("x-middleware-next")).toBe("1");
+    expect((await call("GET", "https://evil.example")).headers.get("x-middleware-next")).toBe("1");
+  });
+});

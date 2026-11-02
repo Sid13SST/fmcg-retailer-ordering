@@ -141,7 +141,7 @@ export function CaptureView({
   );
 }
 
-function EngineBadge({ label, prefix, hint }: { label: string; prefix: string; hint: string }) {
+function EngineBadge({ label, prefix, hint, model }: { label: string; prefix: string; hint: string; model?: string | null }) {
   const ai = label.startsWith("AI");
   return (
     <p className="mt-2 text-xs text-slate-600" title={hint}>
@@ -154,6 +154,7 @@ function EngineBadge({ label, prefix, hint }: { label: string; prefix: string; h
         {ai ? "✨ " : "⚙ "}
         {label}
       </span>
+      {model && <span className="ml-1 font-mono text-[11px] text-slate-500">{model}</span>}
     </p>
   );
 }
@@ -247,7 +248,7 @@ function Review({ capture, m, onStartOver }: { capture: CaptureData; m: CaptureM
 
   return (
     <div>
-      <EngineBadge label={capture.engineLabel} prefix={c.engine} hint={c.engineHint} />
+      <EngineBadge label={capture.engineLabel} prefix={c.engine} hint={c.engineHint} model={capture.model} />
       <figure className="mt-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
         <figcaption className="text-xs font-semibold text-slate-500">{c.yourMessage}</figcaption>
         <blockquote className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{capture.rawText}</blockquote>

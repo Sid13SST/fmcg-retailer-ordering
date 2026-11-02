@@ -36,6 +36,12 @@ export function TotalsCard({ totals, m }: { totals: OrderTotals; m: CartLineMess
           <dd>{formatINR(totals.grandTotalPaise)}</dd>
         </div>
       </dl>
+      <DemoGstNote text={m.common.demoGstNote} />
     </section>
   );
+}
+
+/** Required on every surface that shows GST: the seeded rates are demo assumptions (ASSUMPTIONS.md A2). */
+export function DemoGstNote({ text }: { text: string }) {
+  return <p className="mt-2 text-xs text-slate-500">{text}</p>;
 }

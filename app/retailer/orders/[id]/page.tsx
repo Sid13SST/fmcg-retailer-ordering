@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/i18n";
 import { fmt, plural } from "@/lib/i18n-format";
 import { getI18n } from "@/lib/i18n-server";
 import { formatINR } from "@/lib/money";
+import { DemoGstNote } from "@/components/retailer/totals-card";
 import { gstBreakup } from "@/lib/orders/gst-breakup";
 
 export const dynamic = "force-dynamic";
@@ -126,6 +127,7 @@ export default async function OrderDetailPage({
             ))}
           </tbody>
         </table>
+        <DemoGstNote text={m.common.demoGstNote} />
       </section>
 
       <section className="mt-4 rounded-xl bg-white p-4 ring-1 ring-slate-200">
@@ -156,6 +158,7 @@ export default async function OrderDetailPage({
             <dd>{formatINR(order.grandTotalPaise)}</dd>
           </div>
         </dl>
+        <DemoGstNote text={m.common.demoGstNote} />
       </section>
 
       <section className="mt-4 rounded-xl bg-white p-3 ring-1 ring-slate-200">

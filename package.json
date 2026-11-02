@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
+    "seed": "prisma db seed",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "postinstall": "prisma generate"

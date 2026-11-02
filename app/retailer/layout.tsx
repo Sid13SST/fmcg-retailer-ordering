@@ -31,7 +31,7 @@ export default async function RetailerLayout({ children }: { children: React.Rea
         </div>
       </header>
       <div className="mx-auto max-w-3xl px-4 pb-24 pt-4">{children}</div>
-      <BottomNav labels={{ catalogue: m.nav.catalogue, cart: m.nav.cart, orders: m.nav.orders }} />
+      <BottomNav labels={{ catalogue: m.nav.catalogue, capture: m.nav.capture, cart: m.nav.cart, orders: m.nav.orders }} />
     </CartProvider>
   );
 }

@@ -40,6 +40,22 @@ enum AICaptureStatus {
   PARSED
   CONFIRMED
   DISCARDED
+  /// Extraction failed (e.g. AI returned invalid JSON twice); nothing was parsed.
+  FAILED
+}
+
+/// Which engine read a text order. Shown to the user; never faked.
+enum CaptureEngine {
+  GEMINI
+  OFFLINE
+}
+
+/// Where an alias came from. CURATED = distributor-maintained (seed);
+/// CONFIRMED / CORRECTED = learned from a retailer confirming or correcting a capture.
+enum AliasSource {
+  CURATED
+  CONFIRMED
+  CORRECTED
 }
 
 model Salesman {
@@ -186,6 +202,13 @@ model AICapture {
   /// JSON string (SQLite has no native JSON column in Prisma).
   parsedJson       String?
   status           AICaptureStatus @default(PENDING)
+  engine           CaptureEngine?
+  /// Model id that answered (Gemini only), e.g. gemini-flash-latest.
+  model            String?
+  /// Honest failure reason when status = FAILED.
+  errorMessage     String?
+  /// JSON: final lines the retailer confirmed, with corrections and removed lines.
+  outcomeJson      String?
   confirmedOrderId String?
   confirmedOrder   Order?          @relation(fields: [confirmedOrderId], references: [id])
   createdAt        DateTime        @default(now())
@@ -197,14 +220,16 @@ model AICapture {
 /// A phrase a retailer uses for a SKU ("peti biscuit" -> SKU-BS-075).
 /// retailerId = null means a distributor-wide alias.
 model Alias {
-  id         String    @id @default(cuid())
+  id         String      @id @default(cuid())
   retailerId String?
-  retailer   Retailer? @relation(fields: [retailerId], references: [id])
+  retailer   Retailer?   @relation(fields: [retailerId], references: [id])
   phrase     String
   skuId      String
-  sku        SKU       @relation(fields: [skuId], references: [id])
-  usageCount Int       @default(1)
-  createdAt  DateTime  @default(now())
+  sku        SKU         @relation(fields: [skuId], references: [id])
+  usageCount Int         @default(1)
+  source     AliasSource @default(CURATED)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now()) @updatedAt
 
   @@unique([retailerId, phrase])
   @@index([phrase])

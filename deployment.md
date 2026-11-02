@@ -3,7 +3,109 @@
 Kirana OrderDesk is a single Next.js app with a SQLite database. Everything except the
 optional Gemini call runs locally with no external services.
 
-## Environment variables
+## Run it locally, step by step
+
+1. **Node.js 20 or newer** (tested on Node 22) and npm. Check with:
+
+   ```bash
+   node -v
+   ```
+
+2. **Install dependencies** (also generates the Prisma client):
+
+   ```bash
+   npm install
+   ```
+
+3. **Create `.env`** from the template, then fill in the values on your machine:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   | Variable | Required | What to put there |
+   |----------|----------|-------------------|
+   | `DATABASE_URL` | yes | a SQLite file path, for example `file:./dev.db` (relative to `prisma/`) |
+   | `SESSION_SECRET` | yes | any random string of 32+ characters |
+   | `GEMINI_API_KEY` | no | your own Google AI Studio key; leave empty to use the offline parser |
+
+   One way to generate a session secret:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   `.env` is gitignored. Never commit it, and never put real values in `.env.example`.
+
+4. **Create the database and load demo data.** `migrate dev` applies every migration and
+   runs the seed on a fresh database:
+
+   ```bash
+   npx prisma migrate dev
+   ```
+
+   The seed is deterministic and idempotent; run it again any time to reset demo data:
+
+   ```bash
+   npm run seed
+   ```
+
+5. **Start the app** at http://localhost:3000:
+
+   ```bash
+   npm run dev
+   ```
+
+6. **Log in.** The OTP is always `123456` (mocked, nothing is sent).
+
+   | Role | Phone | Lands on |
+   |------|-------|----------|
+   | Retailer, Agrawal Kirana Stores (healthy credit) | `9827000001` | `/retailer/catalogue` |
+   | Retailer, Irfan Provision Store (over credit limit) | `9827000003` | `/retailer/catalogue` |
+   | Retailer, Shri Ram Kirana (has the AI-captured demo order) | `9827000004` | `/retailer/catalogue` |
+   | Order desk, Neha Sharma | `9000000001` | `/desk` |
+
+   The full list is in the README.
+
+7. **Run the tests** (unit + integration; integration tests create and reset their own
+   `prisma/test.db`, never touching `dev.db`):
+
+   ```bash
+   npm test
+   ```
+
+   Type-check, lint and a production build:
+
+   ```bash
+   npm run typecheck
+   ```
+
+   ```bash
+   npm run lint
+   ```
+
+   ```bash
+   npm run build
+   ```
+
+A clean-slate check that everything works from scratch:
+
+```bash
+rm -rf node_modules .next && npm install && npx prisma migrate dev && npm run seed && npm test && npm run build
+```
+
+## What is mocked, and how
+
+Nothing in the demo talks to an outside system except the optional Gemini call.
+
+| External system | In this demo | Where | To make it real |
+|-----------------|--------------|-------|-----------------|
+| **OTP SMS** | `MockOtpProvider` accepts the fixed code `123456` for any registered number, and the login screen shows it. No SMS is sent. | `lib/otp/otp-provider.ts` (A7) | Implement `OtpProvider` with an SMS gateway; add attempt limits and expiry |
+| **WhatsApp** | Retailers paste their WhatsApp-style message into **Text order**; there is no WhatsApp API connection. | `/retailer/capture` | A WhatsApp Business webhook calling the same capture pipeline |
+| **Tally** | *Export to Tally* builds a Tally-style CSV, stores it in `TallyExport.csvPayload` and downloads it in the browser. Nothing is sent to a Tally server. | `lib/desk/tally.ts` (A8, A28) | Tally XML import over its HTTP port, or a connector |
+| **Gemini (optional)** | Real API call when `GEMINI_API_KEY` is set; otherwise a deterministic offline parser, labeled as such in the UI. | `lib/ai-capture.ts` | Already real; see below |
+
+## All environment variables
 
 Copy `.env.example` to `.env` and fill in values. **`.env` is gitignored and must never be
 committed**; `.env.example` holds variable names only.

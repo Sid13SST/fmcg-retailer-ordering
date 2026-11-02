@@ -233,6 +233,20 @@ export const geminiOutputSchema = z.array(geminiLineSchema).max(50);
 export type GeminiLine = z.infer<typeof geminiLineSchema>;
 
 export const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash-lite"] as const;
+
+/**
+ * HTTP statuses that move on to the next model: 404 (model retired for this key),
+ * 429 (quota / rate limit) and transient server errors 500/502/503/504 (e.g. Google's
+ * "model is experiencing high demand"). Auth errors (401/403) do not fall back.
+ */
+export const FALLBACK_STATUSES: ReadonlySet<number> = new Set([404, 429, 500, 502, 503, 504]);
+
+/** Model order: GEMINI_MODEL / GEMINI_FALLBACK_MODEL override the defaults (names only, not secrets). */
+export function geminiModels(env: Record<string, string | undefined> = process.env): string[] {
+  const primary = env.GEMINI_MODEL?.trim() || GEMINI_MODELS[0];
+  const fallback = env.GEMINI_FALLBACK_MODEL?.trim() || GEMINI_MODELS[1];
+  return primary === fallback ? [primary] : [primary, fallback];
+}
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /** Parse model text into validated lines, or return a readable reason. */
@@ -336,16 +350,18 @@ export class GeminiProvider implements ExtractionProvider {
     let model: string | null = null;
     let first: { status: number; text: string | null } | null = null;
 
-    // Primary model, then fallback on 404 (model retired) or 429 (quota/rate limit).
+    // Primary model, then fallback on 404 (retired), 429 (quota) or a transient 5xx.
+    const tried: string[] = [];
     for (const m of this.models) {
       calls++;
       first = await this.call(m, system, [userTurn]);
-      if (first.status === 404 || first.status === 429) continue;
+      tried.push(`${m}: HTTP ${first.status}`);
+      if (FALLBACK_STATUSES.has(first.status)) continue;
       model = m;
       break;
     }
     if (!first || model === null) {
-      throw new AiExtractionError("UNAVAILABLE", `Gemini models unavailable (HTTP ${first?.status ?? "?"}).`, first?.status);
+      throw new AiExtractionError("UNAVAILABLE", `Gemini models unavailable (${tried.join("; ")}).`, first?.status);
     }
     if (first.text === null) {
       throw new AiExtractionError("HTTP_ERROR", `Gemini returned HTTP ${first.status}.`, first.status);
@@ -430,7 +446,8 @@ export function selectProvider(
   opts: { forceOffline?: boolean; fetchImpl?: typeof fetch } = {},
 ): ExtractionProvider {
   const mode = opts.forceOffline ? "OFFLINE" : engineMode(env);
-  if (mode === "GEMINI_KEY") return new GeminiProvider({ apiKey: env.GEMINI_API_KEY, fetchImpl: opts.fetchImpl });
-  if (mode === "GEMINI_PROXY") return new GeminiProvider({ fetchImpl: opts.fetchImpl });
+  const models = geminiModels(env);
+  if (mode === "GEMINI_KEY") return new GeminiProvider({ apiKey: env.GEMINI_API_KEY, fetchImpl: opts.fetchImpl, models });
+  if (mode === "GEMINI_PROXY") return new GeminiProvider({ fetchImpl: opts.fetchImpl, models });
   return new OfflineParserProvider();
 }

@@ -6,7 +6,7 @@ import { SchemeBadge, StockBadge, stockLevel } from "@/components/retailer/badge
 import { getSession } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { fmt, plural } from "@/lib/i18n-format";
-import { schemeBadge } from "@/lib/i18n";
+import { categoryLabel, schemeBadge } from "@/lib/i18n";
 import { getI18n } from "@/lib/i18n-server";
 import { formatINR } from "@/lib/money";
 import { availableCreditPaise } from "@/lib/pricing";
@@ -105,7 +105,7 @@ export default async function CataloguePage({
             <option value="">{m.catalogue.allCategories}</option>
             {categories.map((c) => (
               <option key={c.category} value={c.category}>
-                {c.category}
+                {categoryLabel(m, c.category)}
               </option>
             ))}
           </select>

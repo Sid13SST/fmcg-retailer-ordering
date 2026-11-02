@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getMessages, parseLocale, schemeBadge } from "@/lib/i18n";
+import { categoryLabel, getMessages, parseLocale, schemeBadge } from "@/lib/i18n";
+import { SKUS } from "@/prisma/seed-data";
 import { fmt, plural } from "@/lib/i18n-format";
 
 function keysOf(obj: object, prefix = ""): string[] {
@@ -46,5 +47,13 @@ describe("i18n", () => {
     expect(schemeBadge(getMessages("en"), { type: "SLAB_PERCENT_OFF", thresholdCases: 5, freeCases: 0, percentOff: 3 })).toBe(
       "3% off on 5+ cases",
     );
+  });
+
+  it("has a Hindi name for every seeded category", () => {
+    const hi = getMessages("hi");
+    for (const category of new Set(SKUS.map((s) => s.category))) {
+      expect(categoryLabel(hi, category), category).not.toBe(category);
+    }
+    expect(categoryLabel(hi, "Brand new category")).toBe("Brand new category");
   });
 });

@@ -263,6 +263,23 @@ const en = {
     EXPORTED: "Sent to billing",
     REJECTED: "Rejected",
   },
+  /** Display names for SKU.category values (data stays English). */
+  categories: {
+    "Bakery": "Bakery",
+    "Biscuits": "Biscuits",
+    "Coffee": "Coffee",
+    "Detergent": "Detergent",
+    "Dishwash": "Dishwash",
+    "Hair Care": "Hair Care",
+    "Health Drinks": "Health Drinks",
+    "Home Care": "Home Care",
+    "Namkeen": "Namkeen",
+    "Noodles": "Noodles",
+    "Oral Care": "Oral Care",
+    "Skin Care": "Skin Care",
+    "Soap": "Soap",
+    "Tea": "Tea",
+  } as Record<string, string>,
   scheme: {
     buyGet: "Buy {x} get {y} free",
     slab: "{p}% off on {x}+ cases",
@@ -521,6 +538,22 @@ const hi: Messages = {
     EXPORTED: "बिलिंग को भेजा",
     REJECTED: "रद्द",
   },
+  categories: {
+    "Bakery": "बेकरी",
+    "Biscuits": "बिस्किट",
+    "Coffee": "कॉफ़ी",
+    "Detergent": "डिटर्जेंट",
+    "Dishwash": "बर्तन धोने का",
+    "Hair Care": "बालों की देखभाल",
+    "Health Drinks": "हेल्थ ड्रिंक",
+    "Home Care": "घर की सफ़ाई",
+    "Namkeen": "नमकीन",
+    "Noodles": "नूडल्स",
+    "Oral Care": "दाँतों की देखभाल",
+    "Skin Care": "त्वचा की देखभाल",
+    "Soap": "साबुन",
+    "Tea": "चाय",
+  },
   scheme: {
     buyGet: "{x} पेटी पर {y} मुफ़्त",
     slab: "{x}+ पेटी पर {p}% छूट",
@@ -543,6 +576,11 @@ export function schemeBadge(m: Messages, scheme: Pick<SchemeForPricing, "type" |
   return scheme.type === "BUY_X_GET_Y_FREE"
     ? fmt(m.scheme.buyGet, { x: scheme.thresholdCases, y: scheme.freeCases })
     : fmt(m.scheme.slab, { x: scheme.thresholdCases, p: scheme.percentOff });
+}
+
+/** Localized category name; unknown categories (new data) fall back to the stored name. */
+export function categoryLabel(m: Messages, category: string): string {
+  return m.categories[category] ?? category;
 }
 
 export function dateLocale(locale: Locale): string {

@@ -10,15 +10,17 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const parsed = verifyOtpBodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
+    const issue = parsed.error.issues[0];
+    const code = issue?.path[0] === "otp" ? "INVALID_OTP" : "INVALID_PHONE";
+    return NextResponse.json({ error: issue?.message ?? "Invalid request", code }, { status: 400 });
   }
   const { phone, otp } = parsed.data;
   if (!(await otpProvider.verify(phone, otp))) {
-    return NextResponse.json({ error: "Incorrect OTP" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect OTP", code: "WRONG_OTP" }, { status: 401 });
   }
   const identity = await findIdentityByPhone(phone);
   if (!identity) {
-    return NextResponse.json({ error: "This number is not registered with the distributor" }, { status: 404 });
+    return NextResponse.json({ error: "This number is not registered with the distributor", code: "NOT_REGISTERED" }, { status: 404 });
   }
   const token = await signSession({ sub: identity.id, role: identity.role, name: identity.name }, getSessionSecret());
   const response = NextResponse.json({ ok: true, role: identity.role, redirectTo: ROLE_HOME[identity.role] });

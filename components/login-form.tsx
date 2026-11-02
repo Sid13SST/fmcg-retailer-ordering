@@ -2,10 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { Messages } from "@/lib/i18n";
+import { fmt } from "@/lib/i18n-format";
 
 type Step = "phone" | "otp";
+type LoginMessages = Messages["login"] & { networkError: string };
 
-export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | null }) {
+const ERROR_KEY = {
+  INVALID_PHONE: "invalidPhone",
+  INVALID_OTP: "invalidOtp",
+  WRONG_OTP: "wrongOtp",
+  NOT_REGISTERED: "notRegistered",
+} as const;
+
+export function LoginForm({ demoOtp, next, m }: { demoOtp: string; next: string | null; m: LoginMessages }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
@@ -19,9 +29,12 @@ export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | n
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string; redirectTo?: string };
+    const data = (await res.json().catch(() => ({}))) as { code?: keyof typeof ERROR_KEY; redirectTo?: string };
     return { ok: res.ok, data };
   }
+
+  /** Server error codes are translated here; unknown codes get a generic message. */
+  const errorText = (code: string | undefined) => (code && code in ERROR_KEY ? m[ERROR_KEY[code as keyof typeof ERROR_KEY]] : m.failed);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,28 +43,29 @@ export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | n
     try {
       if (step === "phone") {
         const { ok, data } = await post("/api/auth/request-otp", { phone });
-        if (!ok) return setError(data.error ?? "Could not send OTP");
+        if (!ok) return setError(errorText(data.code));
         setStep("otp");
       } else {
         const { ok, data } = await post("/api/auth/verify-otp", { phone, otp });
-        if (!ok) return setError(data.error ?? "Login failed");
+        if (!ok) return setError(errorText(data.code));
         const home = data.redirectTo ?? "/";
         // Only follow ?next= if it belongs to the role's own area.
         router.replace(next && next.startsWith(home) ? next : home);
         router.refresh();
+        return; // keep the button busy until navigation
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError(m.networkError);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <div>
         <label htmlFor="phone" className="block text-sm font-medium text-slate-700">
-          Mobile number
+          {m.phone}
         </label>
         <input
           id="phone"
@@ -63,7 +77,7 @@ export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | n
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           disabled={step === "otp"}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base disabled:bg-slate-100"
+          className="field mt-1"
           required
         />
       </div>
@@ -71,7 +85,7 @@ export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | n
       {step === "otp" && (
         <div>
           <label htmlFor="otp" className="block text-sm font-medium text-slate-700">
-            OTP
+            {m.otp}
           </label>
           <input
             id="otp"
@@ -80,19 +94,17 @@ export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | n
             autoComplete="one-time-code"
             maxLength={6}
             value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base tracking-widest"
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            className="field mt-1 tracking-[0.3em]"
             autoFocus
             required
           />
-          <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Demo mode: no SMS is sent. Use OTP <strong className="font-mono">{demoOtp}</strong>.
-          </p>
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{fmt(m.demoMode, { otp: demoOtp })}</p>
         </div>
       )}
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -106,17 +118,13 @@ export function LoginForm({ demoOtp, next }: { demoOtp: string; next: string | n
               setOtp("");
               setError(null);
             }}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm"
+            className="btn btn-lg btn-secondary"
           >
-            Change number
+            {m.changeNumber}
           </button>
         )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="flex-1 rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-        >
-          {busy ? "Please wait…" : step === "phone" ? "Send OTP" : "Log in"}
+        <button type="submit" disabled={busy} className="btn btn-lg btn-primary flex-1">
+          {busy ? m.wait : step === "phone" ? m.sendOtp : m.logIn}
         </button>
       </div>
     </form>

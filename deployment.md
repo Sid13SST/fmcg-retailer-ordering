@@ -110,3 +110,7 @@ retailers on slow 3G.
 - Every capture is stored in `AICapture` with the raw text, the full parsed JSON, the engine
   and model, and the outcome (confirmed order and corrections) or the failure reason.
 - GST rates in the seed are demo values (ASSUMPTIONS.md A13).
+- Tally export is mocked (ASSUMPTIONS.md A8, A28): each export's CSV is stored in
+  `TallyExport.csvPayload` and downloaded by the browser; nothing is sent to a Tally server.
+  Desk "today" counters and the bulk export use IST day boundaries (A24), independent of the
+  server's time zone.

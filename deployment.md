@@ -51,13 +51,16 @@ enough.
 
 ### Models and fallback
 
-Default order: `gemini-flash-latest`, then `gemini-2.5-flash-lite`. The next model is
+Default order: `gemini-flash-latest`, then `gemini-3.5-flash-lite`. The next model is
 tried on HTTP 404 (model retired), 429 (quota) and transient 500/502/503/504; 401/403 fail
-immediately. On 2026-11-02 Google answered 404 for `gemini-2.5-flash-lite` on new keys
-("no longer available to new users", suggesting `gemini-3.5-flash-lite`), so set:
+immediately. The brief's fallback, `gemini-2.5-flash-lite`, answered 404 for new keys on
+2026-11-02 ("no longer available to new users"), so the default fallback is
+`gemini-3.5-flash-lite` (verified with this project's key). Either name can still be
+overridden without a code change, e.g.:
 
 ```
-GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
+GEMINI_MODEL=<primary model name>
+GEMINI_FALLBACK_MODEL=<fallback model name>
 ```
 
 If the model returns invalid JSON, the app sends one repair prompt; if that fails too,

@@ -91,16 +91,16 @@ describe("GeminiProvider with a mocked fetch", () => {
     expect(calls).toHaveLength(2);
   });
 
-  it.each([404, 429, 503])("falls back to gemini-2.5-flash-lite on HTTP %i", async (status) => {
+  it.each([404, 429, 503])("falls back to gemini-3.5-flash-lite on HTTP %i", async (status) => {
     const { fetchImpl, calls } = mockFetch([
       [status, ""],
       [200, GOOD],
     ]);
     const res = await new GeminiProvider({ fetchImpl }).extract(BRIEF_SAMPLE_ORDER_MESSAGE, CATALOG);
-    expect(res.model).toBe("gemini-2.5-flash-lite");
+    expect(res.model).toBe("gemini-3.5-flash-lite");
     expect(calls.map((c) => c.url.split("/models/")[1])).toEqual([
       "gemini-flash-latest:generateContent",
-      "gemini-2.5-flash-lite:generateContent",
+      "gemini-3.5-flash-lite:generateContent",
     ]);
   });
 
@@ -116,7 +116,7 @@ describe("GeminiProvider with a mocked fetch", () => {
       [404, ""],
     ]);
     await expect(new GeminiProvider({ fetchImpl }).extract("5 peti biscuit", CATALOG)).rejects.toThrow(
-      /gemini-flash-latest: HTTP 503; gemini-2.5-flash-lite: HTTP 404/,
+      /gemini-flash-latest: HTTP 503; gemini-3.5-flash-lite: HTTP 404/,
     );
   });
 
@@ -157,7 +157,8 @@ describe("engine selection", () => {
   });
 
   it("model names default to the spec and can be overridden by env", () => {
-    expect(geminiModels({})).toEqual(["gemini-flash-latest", "gemini-2.5-flash-lite"]);
-    expect(geminiModels({ GEMINI_FALLBACK_MODEL: "gemini-3.5-flash-lite" })).toEqual(["gemini-flash-latest", "gemini-3.5-flash-lite"]);
+    expect(geminiModels({})).toEqual(["gemini-flash-latest", "gemini-3.5-flash-lite"]);
+    expect(geminiModels({ GEMINI_FALLBACK_MODEL: "gemini-2.5-flash-lite" })).toEqual(["gemini-flash-latest", "gemini-2.5-flash-lite"]);
+    expect(geminiModels({ GEMINI_MODEL: "gemini-3.5-flash-lite" })).toEqual(["gemini-3.5-flash-lite"]);
   });
 });

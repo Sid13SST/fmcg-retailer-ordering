@@ -232,7 +232,7 @@ export const geminiLineSchema = z
 export const geminiOutputSchema = z.array(geminiLineSchema).max(50);
 export type GeminiLine = z.infer<typeof geminiLineSchema>;
 
-export const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash-lite"] as const;
+export const GEMINI_MODELS = ["gemini-flash-latest", "gemini-3.5-flash-lite"] as const;
 
 /**
  * HTTP statuses that move on to the next model: 404 (model retired for this key),

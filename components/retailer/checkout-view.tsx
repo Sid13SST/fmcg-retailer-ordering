@@ -60,7 +60,10 @@ export function CheckoutView({ m }: { m: CheckoutMessages }) {
         return setPlacing(false);
       }
       const data = (await res.json().catch(() => null)) as CreateOrderResult | null;
-      if (!data) throw new Error("bad response");
+      if (!data || res.status >= 500) {
+        setPlaceError({ kind: "message", text: `${m.common.errorTitle}. ${m.common.errorBody}` });
+        return setPlacing(false);
+      }
       if (data.ok) {
         cart.clear();
         router.push(`/retailer/orders/${data.orderId}?placed=1`);

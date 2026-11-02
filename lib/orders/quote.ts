@@ -32,6 +32,8 @@ export interface QuotedLine extends LinePricing {
   stockCases: number;
   /** Most this line could be cut to and still ship (A4). */
   maxOrderableCases: number;
+  /** Active scheme on the SKU, so the UI can show localized nudges. */
+  scheme: SchemeForPricing | null;
 }
 
 export interface CreditPreview {
@@ -101,6 +103,7 @@ export function quoteLine(sku: CatalogSku, qtyCases: number): QuotedLine {
     imageEmoji: sku.imageEmoji,
     stockCases: sku.stockCases,
     maxOrderableCases: maxOrderableCases(sku, qtyCases, sku.scheme),
+    scheme: sku.scheme,
   };
 }
 

@@ -34,6 +34,7 @@ const en = {
     errorBody: "Please check your connection and try again.",
     networkError: "Could not reach the server. Check your connection and try again.",
     sessionExpired: "Your session has expired. Please log in again.",
+    loginAgain: "Log in again",
   },
   credit: {
     title: "Credit",
@@ -88,6 +89,8 @@ const en = {
     unavailable: "Cannot be ordered",
     onlyAvailable: "Only {n} can be supplied now",
     removedItems: "Some items are no longer sold and were removed from your cart.",
+    hintFree: "Add {n} more for {y} free",
+    hintSlab: "Add {n} more for {p}% off",
   },
   checkout: {
     title: "Confirm order",
@@ -177,6 +180,7 @@ const hi: Messages = {
     errorBody: "कृपया इंटरनेट जाँचें और फिर से कोशिश करें।",
     networkError: "सर्वर से जुड़ नहीं पाए। इंटरनेट जाँचें और फिर से कोशिश करें।",
     sessionExpired: "आपका सत्र समाप्त हो गया है। कृपया फिर से लॉग इन करें।",
+    loginAgain: "फिर से लॉग इन करें",
   },
   credit: {
     title: "उधार",
@@ -231,6 +235,8 @@ const hi: Messages = {
     unavailable: "ऑर्डर नहीं हो सकता",
     onlyAvailable: "अभी सिर्फ़ {n} मिल सकती हैं",
     removedItems: "कुछ सामान अब नहीं बिकते, उन्हें कार्ट से हटा दिया गया।",
+    hintFree: "{n} पेटी और लें, {y} मुफ़्त पाएँ",
+    hintSlab: "{n} पेटी और लें, {p}% छूट पाएँ",
   },
   checkout: {
     title: "ऑर्डर पक्का करें",

@@ -211,3 +211,26 @@ describe("placeOrderInputSchema", () => {
     expect(placeOrderInputSchema.safeParse({ lines: [{ skuId: "a", qtyCases: 1 }], clientRequestId: "x" }).success).toBe(false);
   });
 });
+
+describe("quoteCart", () => {
+  it("previews short-confirm totals that match what the order would be", async () => {
+    await seedMinimal({ biscuitStock: 10 });
+    const lines = input([[sku.biscuit, 10], [sku.tea, 2], [sku.detergent, 5]], "SHORT_CONFIRM");
+    const quote = await quoteCart(db, retailerId, { lines: lines.lines });
+    expect(quote!.lines.filter((l) => !l.orderable).map((l) => l.skuCode)).toEqual(["SKU-BS-075", "SKU-TE-250"]);
+    expect(quote!.shortConfirm!.lines.map((l) => [l.skuCode, l.qtyCases])).toEqual([
+      ["SKU-BS-075", 9],
+      ["SKU-DT-1KG", 5],
+    ]);
+    const placed = await createRetailerOrder(db, retailerId, lines);
+    expect(placed.ok && placed.grandTotalPaise).toBe(quote!.shortConfirm!.totals.grandTotalPaise);
+  });
+
+  it("has no short-confirm preview when everything is orderable, and flags unknown SKUs", async () => {
+    await seedMinimal();
+    const quote = await quoteCart(db, retailerId, { lines: [{ skuId: sku.biscuit, qtyCases: 1 }, { skuId: "gone", qtyCases: 1 }] });
+    expect(quote!.shortConfirm).toBeNull();
+    expect(quote!.unknownSkuIds).toEqual(["gone"]);
+    expect(quote!.credit).toMatchObject({ decision: "OK", orderTotalPaise: 956, remainingAfterPaise: 5_000_000 - 956 });
+  });
+});

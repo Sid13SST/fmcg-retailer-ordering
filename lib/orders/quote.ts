@@ -45,10 +45,18 @@ export interface CreditPreview {
   shortfallPaise: number;
 }
 
-export interface Quote {
+export interface QuoteSummary {
   lines: QuotedLine[];
   totals: OrderTotals;
   credit: CreditPreview;
+}
+
+export interface Quote extends QuoteSummary {
+  /**
+   * When some lines exceed stock: what the order would be if the retailer accepts
+   * the confirmable quantities (A12). Null when every line is orderable.
+   */
+  shortConfirm: QuoteSummary | null;
   /** SKUs in the request that no longer exist or are inactive. */
   unknownSkuIds: string[];
 }
@@ -124,5 +132,21 @@ export async function quoteCart(db: Db, retailerId: string, input: QuoteInput): 
     else unknownSkuIds.push(l.skuId);
   }
   const totals = computeOrderTotals(lines);
-  return { lines, totals, credit: previewCredit(retailer, totals.grandTotalPaise), unknownSkuIds };
+
+  let shortConfirm: QuoteSummary | null = null;
+  if (lines.some((l) => !l.orderable)) {
+    const adjusted = lines.flatMap((l) => {
+      if (l.orderable) return [l];
+      const sku = skus.get(l.skuId);
+      return sku && l.maxOrderableCases > 0 ? [quoteLine(sku, l.maxOrderableCases)] : [];
+    });
+    const adjustedTotals = computeOrderTotals(adjusted);
+    shortConfirm = {
+      lines: adjusted,
+      totals: adjustedTotals,
+      credit: previewCredit(retailer, adjustedTotals.grandTotalPaise),
+    };
+  }
+
+  return { lines, totals, credit: previewCredit(retailer, totals.grandTotalPaise), shortConfirm, unknownSkuIds };
 }

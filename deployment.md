@@ -38,9 +38,8 @@ returned in an API response, stored in the database or printed by the smoke scri
 
 3. Restart `npm run dev`. The text-order screen (`/retailer/capture`) now reads
    "Will be read by: AI (Gemini)".
-4. Optional live check on the brief's sample message (prints HTTP status per model and the
-   validated JSON, never the key). `tsx` does not load `.env` by itself, so export the
-   variable in your shell for this one command:
+4. Optional live check on the brief's sample message (reads `.env`, prints the HTTP status
+   per model and the validated JSON, never the key):
 
    ```bash
    npx tsx scripts/gemini-smoke.ts

@@ -12,6 +12,12 @@ import { GeminiProvider, engineMode, geminiModels } from "../lib/ai-capture";
 import { SKUS, BRIEF_SAMPLE_ORDER_MESSAGE } from "../prisma/seed-data";
 
 async function main() {
+  // Load .env if present (Node >= 20.12); existing shell variables win. Values are never printed.
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    // no .env: rely on the shell environment
+  }
   const mode = engineMode();
   if (mode === "OFFLINE") {
     console.error("Neither GEMINI_API_KEY nor GEMINI_VIA_PROXY=1 is set; nothing to test.");

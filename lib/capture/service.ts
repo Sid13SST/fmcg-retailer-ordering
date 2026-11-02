@@ -7,6 +7,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   AiExtractionError,
   ENGINE_LABEL,
+  engineKind,
+  type EngineKind,
   selectProvider,
   type CaptureEngineId,
   type ExtractionProvider,
@@ -36,6 +38,7 @@ export interface CaptureView {
   engine: CaptureEngineId;
   /** Honest, user-facing label of what read the message. */
   engineLabel: string;
+  engineKind: EngineKind;
   model: string | null;
   rawText: string;
   lines: CaptureLine[];
@@ -45,7 +48,7 @@ export interface CaptureView {
 
 export type ParseResult =
   | { ok: true; capture: CaptureView }
-  | { ok: false; code: "AI_FAILED"; captureId: string; message: string; engineLabel: string };
+  | { ok: false; code: "AI_FAILED"; captureId: string; message: string; engineLabel: string; engineKind: EngineKind };
 
 const SKU_OPTION_SELECT = {
   id: true,
@@ -137,6 +140,7 @@ export async function parseCapture(
         captureId: record.id,
         engine: extraction.engine,
         engineLabel: engineLabel(extraction.engine, forced),
+        engineKind: engineKind(extraction.engine, forced),
         model: extraction.model,
         rawText: text,
         lines,
@@ -149,7 +153,7 @@ export async function parseCapture(
     const record = await db.aICapture.create({
       data: { retailerId, rawText: text, status: "FAILED", engine: provider.engine, errorMessage: err.message },
     });
-    return { ok: false, code: "AI_FAILED", captureId: record.id, message: err.message, engineLabel: ENGINE_LABEL[provider.engine] };
+    return { ok: false, code: "AI_FAILED", captureId: record.id, message: err.message, engineLabel: ENGINE_LABEL[provider.engine], engineKind: engineKind(provider.engine, forced) };
   }
 }
 

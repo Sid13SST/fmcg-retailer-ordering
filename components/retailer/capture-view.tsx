@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
+import type { EngineKind } from "@/lib/ai-capture";
 import type { CaptureView as CaptureData, SkuOption } from "@/lib/capture/service";
 import type { ConfirmResult } from "@/lib/capture/service";
 import type { StockIssue } from "@/lib/orders/create-order";
@@ -22,7 +23,7 @@ import { TotalsCard } from "./totals-card";
 type Phase =
   | { kind: "input" }
   | { kind: "reading" }
-  | { kind: "failed"; message: string; engineLabel: string }
+  | { kind: "failed"; message: string; engine: EngineKind }
   | { kind: "review"; capture: CaptureData };
 
 type PlaceError = { kind: "stock"; issues: StockIssue[] } | { kind: "message"; text: string };
@@ -30,12 +31,12 @@ type PlaceError = { kind: "stock"; issues: StockIssue[] } | { kind: "message"; t
 export function CaptureView({
   m,
   sampleMessage,
-  plannedEngineLabel,
+  plannedEngine,
 }: {
   m: CaptureMessages;
   sampleMessage: string;
   /** What will read the message, decided on the server from env config. */
-  plannedEngineLabel: string;
+  plannedEngine: EngineKind;
 }) {
   const c = m.capture;
   const [text, setText] = useState("");
@@ -55,8 +56,8 @@ export function CaptureView({
         setInputError(m.common.sessionExpired);
         return setPhase({ kind: "input" });
       }
-      const data = (await res.json().catch(() => null)) as (CaptureData & { code?: string; message?: string; engineLabel: string }) | null;
-      if (res.status === 502 && data) return setPhase({ kind: "failed", message: data.message ?? "", engineLabel: data.engineLabel });
+      const data = (await res.json().catch(() => null)) as (CaptureData & { code?: string; message?: string }) | null;
+      if (res.status === 502 && data) return setPhase({ kind: "failed", message: data.message ?? "", engine: data.engineKind });
       if (!res.ok || !data) {
         setInputError(res.status === 400 ? c.placeholder : `${m.common.errorTitle}. ${m.common.errorBody}`);
         return setPhase({ kind: "input" });
@@ -75,7 +76,7 @@ export function CaptureView({
   return (
     <div>
       <p className="text-sm text-slate-700">{c.intro}</p>
-      <EngineBadge label={plannedEngineLabel} prefix={c.willUse} hint={c.engineHint} />
+      <EngineBadge kind={plannedEngine} label={c.engines[plannedEngine]} prefix={c.willUse} hint={c.engineHint} />
 
       <form
         className="mt-3"
@@ -125,7 +126,7 @@ export function CaptureView({
           <h2 className="font-semibold text-red-800">{c.failedTitle}</h2>
           <p className="mt-1 text-sm text-red-800">{c.failedBody}</p>
           <p className="mt-1 text-xs text-red-700">
-            {phase.engineLabel}: {phase.message}
+            {c.failedDetail} ({c.engines[phase.engine]}): {phase.message}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => read("auto")} className="min-h-11 rounded-md bg-white px-4 text-sm font-semibold ring-1 ring-red-300">
@@ -141,8 +142,8 @@ export function CaptureView({
   );
 }
 
-function EngineBadge({ label, prefix, hint, model }: { label: string; prefix: string; hint: string; model?: string | null }) {
-  const ai = label.startsWith("AI");
+function EngineBadge({ kind, label, prefix, hint, model }: { kind: EngineKind; label: string; prefix: string; hint: string; model?: string | null }) {
+  const ai = kind === "GEMINI";
   return (
     <p className="mt-2 text-xs text-slate-600" title={hint}>
       {prefix}:{" "}
@@ -248,7 +249,7 @@ function Review({ capture, m, onStartOver }: { capture: CaptureData; m: CaptureM
 
   return (
     <div>
-      <EngineBadge label={capture.engineLabel} prefix={c.engine} hint={c.engineHint} model={capture.model} />
+      <EngineBadge kind={capture.engineKind} label={c.engines[capture.engineKind]} prefix={c.engine} hint={c.engineHint} model={capture.model} />
       <figure className="mt-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
         <figcaption className="text-xs font-semibold text-slate-500">{c.yourMessage}</figcaption>
         <blockquote className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{capture.rawText}</blockquote>

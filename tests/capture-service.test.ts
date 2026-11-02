@@ -61,6 +61,7 @@ describe("capture service — parse and store", () => {
     const cap = await parse(BRIEF_SAMPLE_ORDER_MESSAGE);
     expect(cap.engine).toBe("OFFLINE");
     expect(cap.engineLabel).toBe("Offline parser - no AI key configured");
+    expect(cap.engineKind).toBe("OFFLINE_NO_KEY");
     expect(cap.lines.map((l) => l.skuId)).toEqual([id["SKU-BS-075"], id["SKU-DT-1KG"], id["SKU-TE-250"]]);
     expect(cap.lines[2]!.outOfStock).toBe(true);
 
@@ -78,7 +79,7 @@ describe("capture service — parse and store", () => {
       },
     };
     const res = await parseCapture(db, retailerId, "5 peti biscuit", { provider: failing });
-    expect(res).toMatchObject({ ok: false, code: "AI_FAILED", engineLabel: "AI (Gemini)" });
+    expect(res).toMatchObject({ ok: false, code: "AI_FAILED", engineLabel: "AI (Gemini)", engineKind: "GEMINI" });
     const row = await db.aICapture.findFirstOrThrow({ where: { retailerId } });
     expect(row).toMatchObject({ status: "FAILED", engine: "GEMINI", parsedJson: null });
     expect(row.errorMessage).toMatch(/invalid output twice/);

@@ -78,6 +78,14 @@ export const ENGINE_LABEL: Record<CaptureEngineId, string> = {
   OFFLINE: "Offline parser - no AI key configured",
 };
 
+/** Stable id for the engine label, so the UI can translate it (labels above stay English for logs/tests). */
+export type EngineKind = "GEMINI" | "OFFLINE_NO_KEY" | "OFFLINE_CHOSEN";
+
+export function engineKind(engine: CaptureEngineId, forcedOffline: boolean): EngineKind {
+  if (engine === "GEMINI") return "GEMINI";
+  return forcedOffline ? "OFFLINE_CHOSEN" : "OFFLINE_NO_KEY";
+}
+
 export const MAX_MESSAGE_CHARS = 2000;
 
 export class AiExtractionError extends Error {

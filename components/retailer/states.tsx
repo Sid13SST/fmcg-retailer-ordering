@@ -49,12 +49,12 @@ export function ErrorPanel({
       <p className="mt-1 text-sm text-red-700">{body}</p>
       <div className="mt-3 flex justify-center gap-2">
         {onRetry && (
-          <button type="button" onClick={onRetry} className="min-h-11 rounded-md bg-red-700 px-5 font-semibold text-white">
+          <button type="button" onClick={onRetry} className="btn btn-lg bg-red-700 text-white hover:bg-red-800">
             {retryLabel}
           </button>
         )}
         {action && (
-          <Link href={action.href} className="inline-flex min-h-11 items-center rounded-md border border-red-300 px-5 font-semibold text-red-800">
+          <Link href={action.href} className="btn btn-lg btn-danger">
             {action.label}
           </Link>
         )}

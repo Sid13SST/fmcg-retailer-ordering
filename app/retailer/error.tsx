@@ -14,10 +14,10 @@ export default function RetailerError({ error, reset }: { error: Error & { diges
         Please check your connection and try again. · कृपया इंटरनेट जाँचें और फिर से कोशिश करें।
       </p>
       <div className="mt-4 flex justify-center gap-2">
-        <button type="button" onClick={reset} className="min-h-11 rounded-md bg-red-700 px-5 font-semibold text-white">
+        <button type="button" onClick={reset} className="btn btn-lg bg-red-700 text-white hover:bg-red-800">
           Try again · फिर से
         </button>
-        <a href="/retailer/catalogue" className="inline-flex min-h-11 items-center rounded-md border border-red-300 px-5 font-semibold text-red-800">
+        <a href="/retailer/catalogue" className="btn btn-lg btn-danger">
           Catalogue · सामान
         </a>
       </div>

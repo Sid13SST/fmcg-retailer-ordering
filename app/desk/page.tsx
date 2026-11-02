@@ -12,16 +12,16 @@ export default async function DeskDashboard({ searchParams }: { searchParams: Pr
   const [counts, queue, dormant] = await Promise.all([deskCounts(prisma), deskQueue(prisma, status), dormantRetailers(prisma)]);
 
   const tiles = [
-    { label: "Pending review", value: counts.pendingReview, href: "/desk?status=PENDING_DESK_REVIEW", style: "border-sky-200 bg-sky-50 text-sky-800" },
-    { label: "On credit hold", value: counts.onHold, href: "/desk?status=ON_HOLD", style: "border-amber-200 bg-amber-50 text-amber-800" },
+    { label: "Pending review", value: counts.pendingReview, href: "/desk?status=PENDING_DESK_REVIEW", style: "border-l-sky-500" },
+    { label: "On credit hold", value: counts.onHold, href: "/desk?status=ON_HOLD", style: "border-l-amber-500" },
     {
       label: "Approved, not exported",
       value: counts.approvedAwaitingExport,
       href: "/desk?status=CONFIRMED",
-      style: "border-emerald-200 bg-emerald-50 text-emerald-800",
+      style: "border-l-emerald-500",
       hint: `${counts.approvedToday} approved today`,
     },
-    { label: "Exported today", value: counts.exportedToday, href: "/desk?status=EXPORTED", style: "border-slate-200 bg-white text-slate-700" },
+    { label: "Exported today", value: counts.exportedToday, href: "/desk?status=EXPORTED", style: "border-l-slate-400" },
   ];
   const filters: Array<{ key: string | null; label: string }> = [{ key: null, label: "All" }, ...QUEUE_STATUSES.map((s) => ({ key: s, label: DESK_STATUS_LABEL[s] }))];
 
@@ -29,10 +29,10 @@ export default async function DeskDashboard({ searchParams }: { searchParams: Pr
     <div className="space-y-6">
       <section aria-label="Today at a glance" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map((t) => (
-          <Link key={t.label} href={t.href} className={`rounded-xl border p-4 hover:shadow-sm ${t.style}`}>
-            <p className="text-xs font-semibold uppercase tracking-wide">{t.label}</p>
+          <Link key={t.label} href={t.href} className={`card border-l-4 p-4 hover:bg-slate-50 ${t.style}`}>
+            <p className="text-xs font-medium text-slate-600">{t.label}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{t.value}</p>
-            {t.hint && <p className="text-xs">{t.hint}</p>}
+            {t.hint && <p className="text-xs text-slate-500">{t.hint}</p>}
           </Link>
         ))}
       </section>
@@ -47,7 +47,7 @@ export default async function DeskDashboard({ searchParams }: { searchParams: Pr
             <BulkExportButton count={counts.approvedToday} />
           </div>
 
-          <nav aria-label="Filter by status" className="flex gap-2 overflow-x-auto border-b border-slate-100 px-4 py-2">
+          <nav aria-label="Filter by status" className="flex flex-wrap gap-2 border-b border-slate-100 px-4 py-2">
             {filters.map((f) => {
               const active = f.key === status;
               return (
@@ -68,8 +68,33 @@ export default async function DeskDashboard({ searchParams }: { searchParams: Pr
           {queue.length === 0 ? (
             <p className="p-6 text-center text-sm text-slate-500">No orders {status ? `with status “${DESK_STATUS_LABEL[status]}”` : "yet"}.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[44rem] text-sm">
+            <>
+            {/* Phones: one card per order, nothing scrolls sideways. */}
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {queue.map((o) => (
+                <li key={o.id}>
+                  <Link href={`/desk/orders/${o.id}`} className="block px-4 py-3 active:bg-slate-50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-brand-700">{o.orderNumber}</p>
+                        <p className="truncate text-sm font-medium">{o.retailer.shopName}</p>
+                      </div>
+                      <p className="shrink-0 text-base font-semibold tabular-nums">{formatINR(o.grandTotalPaise)}</p>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {formatIST(o.createdAt)} · {o.retailer.area} · {o.lineCount} line{o.lineCount === 1 ? "" : "s"}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <DeskStatusBadge status={o.status} />
+                      <SourceBadge source={o.source} />
+                      <CreditStatus shortfallPaise={o.creditShortfallPaise} />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden md:block">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-2 font-medium">Order</th>
@@ -83,27 +108,28 @@ export default async function DeskDashboard({ searchParams }: { searchParams: Pr
                 <tbody>
                   {queue.map((o) => (
                     <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 align-top">
                         <Link href={`/desk/orders/${o.id}`} className="font-semibold text-brand-700 hover:underline">
                           {o.orderNumber}
                         </Link>
                         <p className="text-xs text-slate-500">{formatIST(o.createdAt)}</p>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 align-top">
                         <p className="font-medium">{o.retailer.shopName}</p>
                         <p className="text-xs text-slate-500">
                           {o.retailer.area} · {o.lineCount} line{o.lineCount === 1 ? "" : "s"}
                         </p>
                       </td>
-                      <td className="px-4 py-2"><SourceBadge source={o.source} /></td>
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{formatINR(o.grandTotalPaise)}</td>
-                      <td className="px-4 py-2"><CreditStatus shortfallPaise={o.creditShortfallPaise} /></td>
-                      <td className="px-4 py-2"><DeskStatusBadge status={o.status} /></td>
+                      <td className="px-4 py-2 align-top"><SourceBadge source={o.source} /></td>
+                      <td className="num px-4 py-2 align-top font-semibold">{formatINR(o.grandTotalPaise)}</td>
+                      <td className="px-4 py-2 align-top"><CreditStatus shortfallPaise={o.creditShortfallPaise} /></td>
+                      <td className="px-4 py-2 align-top"><DeskStatusBadge status={o.status} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </section>
 

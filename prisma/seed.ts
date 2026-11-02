@@ -141,6 +141,13 @@ async function main() {
     });
     retailerIds.set(r.key, row.id);
   }
+  // Running used credit per retailer while history is replayed. `usedRs` is the opening
+  // balance (outstanding on approved/delivered business); every seeded PENDING order then
+  // reserves its total exactly as checkout does (A10), and ON_HOLD orders reserve nothing.
+  // Written back to the retailers once all orders exist.
+  const usedPaiseByRetailer = new Map(RETAILERS.map((r) => [r.key, r.usedRs * 100] as const));
+  const usedNow = (key: string) => usedPaiseByRetailer.get(key) ?? 0;
+  const reserveCredit = (key: string, paise: number) => usedPaiseByRetailer.set(key, usedNow(key) + paise);
 
   const skuByCode = new Map<string, { id: string; seed: SkuSeed }>();
   for (const s of SKUS) {
@@ -246,7 +253,7 @@ async function main() {
     let creditShortfallPaise: number | null = null;
     if (plan.daysAgo <= 3 && status === "PENDING_DESK_REVIEW") {
       const credit = decideCredit(
-        { creditLimitPaise: plan.retailer.limitRs * 100, creditUsedPaise: plan.retailer.usedRs * 100 },
+        { creditLimitPaise: plan.retailer.limitRs * 100, creditUsedPaise: usedNow(plan.retailer.key) },
         totals.grandTotalPaise,
       );
       if (credit.decision === "ON_HOLD") {
@@ -255,6 +262,8 @@ async function main() {
         creditShortfallPaise = credit.shortfallPaise;
       }
     }
+
+    if (status === "PENDING_DESK_REVIEW") reserveCredit(plan.retailer.key, totals.grandTotalPaise);
 
     const source = rand() < 0.35 ? "AI_TEXT" : "CATALOG";
     const order = await prisma.order.create({
@@ -352,6 +361,10 @@ async function main() {
       };
     });
     const totals = computeOrderTotals(lines.map((l) => l.priced));
+    // Placed within the limit like any checkout order, so it reserves credit (A10).
+    const credit = decideCredit({ creditLimitPaise: retailer.limitRs * 100, creditUsedPaise: usedNow(retailer.key) }, totals.grandTotalPaise);
+    if (credit.decision !== "OK") throw new Error("Demo AI order would be on credit hold; adjust seed data");
+    reserveCredit(retailer.key, totals.grandTotalPaise);
     const rawText = "namaste bhaiya, 6 peti biscuit bada aur 3 peti bhujia bhej dena";
     const order = await prisma.order.create({
       data: {
@@ -404,6 +417,10 @@ async function main() {
         updatedAt: createdAt,
       },
     });
+  }
+
+  for (const r of RETAILERS) {
+    await prisma.retailer.update({ where: { id: retailerIds.get(r.key)! }, data: { creditUsedPaise: usedNow(r.key) } });
   }
 
   const counts = {

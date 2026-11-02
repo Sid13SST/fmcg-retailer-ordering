@@ -107,6 +107,7 @@ export type RetailerSeed = {
   phone: string;
   area: string;
   limitRs: number;
+  /** Opening balance (outstanding approved business); seeded PENDING orders are added on top (A10). */
   usedRs: number;
   salesman: (typeof SALESMEN)[number]["key"];
   favourites: string[];

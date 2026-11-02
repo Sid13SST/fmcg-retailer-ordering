@@ -8,6 +8,7 @@
 import { PrismaClient, type OrderStatus } from "@prisma/client";
 import { priceLine, type SchemeForPricing } from "../lib/scheme-engine";
 import { computeOrderTotals, decideCredit } from "../lib/pricing";
+import { tallyCsvForOrders } from "../lib/desk/tally";
 import {
   ALIASES,
   BRIEF_SAMPLE_SKUS,
@@ -43,6 +44,10 @@ function pick<T>(items: readonly T[]): T {
 
 const ORDER_COUNT = 40;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Retailers kept silent for 15+ days so the desk's "no order in 14 days" panel has entries. */
+const DORMANT_RETAILERS = new Set(["khan", "chourasia"]);
+/** Approved orders at least this old were already exported to Tally (mocked). */
+const EXPORTED_AFTER_DAYS = 5;
 
 function assertBriefSamplesVerbatim() {
   for (const line of BRIEF_SAMPLE_SKUS) {
@@ -66,8 +71,12 @@ function statusForAge(daysAgo: number): OrderStatus {
   const r = rand();
   if (daysAgo <= 1) return r < 0.2 ? "DRAFT" : "PENDING_DESK_REVIEW";
   if (daysAgo <= 3) return r < 0.6 ? "PENDING_DESK_REVIEW" : "CONFIRMED";
-  return r < 0.1 ? "REJECTED" : "CONFIRMED";
+  if (r < 0.1) return "REJECTED";
+  return daysAgo >= EXPORTED_AFTER_DAYS ? "EXPORTED" : "CONFIRMED";
 }
+
+const REJECTION_NOTE = "Duplicate of an order placed via salesman";
+const hoursAfter = (d: Date, hours: number) => new Date(d.getTime() + hours * 60 * 60 * 1000);
 
 /** Plausible status trail for a seeded order: placed by the retailer, then desk action if any. */
 function statusHistory(status: OrderStatus, createdAt: Date, holdReason: string | null) {
@@ -76,13 +85,16 @@ function statusHistory(status: OrderStatus, createdAt: Date, holdReason: string 
     return [{ fromStatus: null, toStatus: "DRAFT" as const, actorRole: "RETAILER" as const, note: "Captured from WhatsApp text", createdAt }];
   }
   const placedAs: OrderStatus = status === "ON_HOLD" ? "ON_HOLD" : "PENDING_DESK_REVIEW";
-  const events: Array<{ fromStatus: OrderStatus | null; toStatus: OrderStatus; actorRole: "RETAILER" | "ORDER_DESK"; note: string | null; createdAt: Date }> = [
+  const events: Array<{ fromStatus: OrderStatus | null; toStatus: OrderStatus; actorRole: "RETAILER" | "ORDER_DESK"; actorName?: string; note: string | null; createdAt: Date }> = [
     { fromStatus: null, toStatus: placedAs, actorRole: "RETAILER", note: holdReason, createdAt },
   ];
-  if (status === "CONFIRMED") {
-    events.push({ fromStatus: placedAs, toStatus: "CONFIRMED", actorRole: "ORDER_DESK", note: null, createdAt: later(14) });
+  if (status === "CONFIRMED" || status === "EXPORTED") {
+    events.push({ fromStatus: placedAs, toStatus: "CONFIRMED", actorRole: "ORDER_DESK", note: "Approved by order desk", createdAt: later(14) });
+  }
+  if (status === "EXPORTED") {
+    events.push({ fromStatus: "CONFIRMED", toStatus: "EXPORTED", actorRole: "ORDER_DESK", note: "Exported to Tally (CSV)", createdAt: later(20) });
   } else if (status === "REJECTED") {
-    events.push({ fromStatus: placedAs, toStatus: "REJECTED", actorRole: "ORDER_DESK", note: "Duplicate of an order placed via salesman", createdAt: later(15) });
+    events.push({ fromStatus: placedAs, toStatus: "REJECTED", actorRole: "ORDER_DESK", note: REJECTION_NOTE, createdAt: later(15) });
   }
   return events;
 }
@@ -192,7 +204,12 @@ async function main() {
       forceReview: false,
     })),
     ...holdProne.map((retailer, i) => ({ retailer, daysAgo: i, minuteOfDay: 10 * 60 + i * 47, forceReview: true })),
-  ].sort((a, b) => b.daysAgo - a.daysAgo || a.minuteOfDay - b.minuteOfDay);
+    // One older order each for the dormant retailers, so they show a real "last order" date.
+    ...RETAILERS.filter((r) => DORMANT_RETAILERS.has(r.key)).map((retailer, i) => ({ retailer, daysAgo: 18 + 4 * i, minuteOfDay: 11 * 60 + i * 23, forceReview: false })),
+  ]
+    // Dormant retailers' orders are moved back to 15-29 days ago (no extra random draws).
+    .map((p) => (DORMANT_RETAILERS.has(p.retailer.key) && p.daysAgo < 15 ? { ...p, daysAgo: 15 + (p.daysAgo % 15) } : p))
+    .sort((a, b) => b.daysAgo - a.daysAgo || a.minuteOfDay - b.minuteOfDay);
 
   const phraseFor = (code: string, retailerKey: string) =>
     ALIASES.find((a) => a.code === code && a.retailer === retailerKey)?.phrase ??
@@ -252,6 +269,9 @@ async function main() {
         grandTotalPaise: totals.grandTotalPaise,
         holdReason,
         creditShortfallPaise,
+        rejectionReason: status === "REJECTED" ? REJECTION_NOTE : null,
+        approvedAt: status === "CONFIRMED" || status === "EXPORTED" ? hoursAfter(createdAt, 14) : null,
+        exportedAt: status === "EXPORTED" ? hoursAfter(createdAt, 20) : null,
         createdAt,
         updatedAt: createdAt,
         lines: {
@@ -270,11 +290,20 @@ async function main() {
             gstPaise: l.gstPaise,
             totalPaise: l.totalPaise,
             schemeLabel: l.schemeLabel,
+            // AI_TEXT lines keep the words the retailer typed (see rawText below).
+            sourcePhrase: source === "AI_TEXT" ? `${l.qtyCases} peti ${phraseFor(l.skuCode, plan.retailer.key)}` : null,
+            sourceProductText: source === "AI_TEXT" ? phraseFor(l.skuCode, plan.retailer.key) : null,
           })),
         },
-        statusEvents: { create: statusHistory(status, createdAt, holdReason) },
+        statusEvents: { create: statusHistory(status, createdAt, holdReason).map((e) => (e.actorRole === "ORDER_DESK" ? { ...e, actorName: DESK_USERS[0]!.name } : e)) },
       },
+      include: { lines: true, retailer: { select: { shopName: true, area: true } } },
     });
+    if (status === "EXPORTED") {
+      await prisma.tallyExport.create({
+        data: { orderId: order.id, exportedAt: hoursAfter(createdAt, 20), exportedBy: DESK_USERS[0]!.name, csvPayload: tallyCsvForOrders([order]) },
+      });
+    }
 
     if (source === "AI_TEXT") {
       const rawText =
@@ -299,6 +328,83 @@ async function main() {
     }
   }
 
+  // Demo for desk review: a fresh text order where "biscuit bada" (the retailer means the
+  // bigger Marie pack) was mapped to the 75 g glucose biscuit. The desk corrects the line,
+  // which teaches Shri Ram Kirana's alias "biscuit bada" -> SKU-BS-150.
+  {
+    const retailer = RETAILERS.find((r) => r.key === "yadav")!;
+    const retailerId = retailerIds.get(retailer.key)!;
+    const createdAt = new Date(now - 40 * 60 * 1000);
+    const wanted: Array<{ code: string; qty: number; phrase: string }> = [
+      { code: "SKU-BS-075", qty: 6, phrase: "biscuit bada" },
+      { code: "SKU-NM-200", qty: 3, phrase: "bhujia" },
+    ];
+    const lines = wanted.map((w) => {
+      const sku = skuOf(w.code);
+      return {
+        w,
+        priced: priceLine(
+          { id: sku.id, code: w.code, caseSize: sku.seed.caseSize, dealerPricePerCasePaise: sku.seed.pricePaise, gstRatePercent: sku.seed.gst, stockCases: 100_000 },
+          w.qty,
+          activeSchemeBySku.get(sku.id) ?? null,
+        ),
+      };
+    });
+    const totals = computeOrderTotals(lines.map((l) => l.priced));
+    const rawText = "namaste bhaiya, 6 peti biscuit bada aur 3 peti bhujia bhej dena";
+    const order = await prisma.order.create({
+      data: {
+        orderNumber: `KOD-${String(seq + 1).padStart(5, "0")}`,
+        retailerId,
+        status: "PENDING_DESK_REVIEW",
+        source: "AI_TEXT",
+        createdByRole: "RETAILER",
+        subtotalPaise: totals.subtotalPaise,
+        discountPaise: totals.discountPaise,
+        gstPaise: totals.gstPaise,
+        grandTotalPaise: totals.grandTotalPaise,
+        notes: "Captured from text (offline parser), confirmed by retailer",
+        createdAt,
+        updatedAt: createdAt,
+        lines: {
+          create: lines.map(({ w, priced: l }) => ({
+            skuId: l.skuId,
+            skuCode: l.skuCode,
+            skuName: skuOf(l.skuCode).seed.name,
+            caseSize: skuOf(l.skuCode).seed.caseSize,
+            gstRatePercent: l.gstRatePercent,
+            qtyCases: l.qtyCases,
+            unitPricePaise: l.unitPricePaise,
+            freeCases: l.freeCases,
+            discountPercent: l.discountPercent,
+            discountPaise: l.discountPaise,
+            subtotalPaise: l.subtotalPaise,
+            gstPaise: l.gstPaise,
+            totalPaise: l.totalPaise,
+            schemeLabel: l.schemeLabel,
+            sourcePhrase: `${w.qty} peti ${w.phrase}`,
+            sourceProductText: w.phrase,
+          })),
+        },
+        statusEvents: {
+          create: { fromStatus: null, toStatus: "PENDING_DESK_REVIEW", actorRole: "RETAILER", note: "Captured from text (offline parser), confirmed by retailer", createdAt },
+        },
+      },
+    });
+    await prisma.aICapture.create({
+      data: {
+        retailerId,
+        rawText,
+        engine: "OFFLINE",
+        status: "CONFIRMED",
+        confirmedOrderId: order.id,
+        parsedJson: JSON.stringify({ lines: wanted.map((w) => ({ phrase: w.phrase, skuCode: w.code, qtyCases: w.qty })) }),
+        createdAt,
+        updatedAt: createdAt,
+      },
+    });
+  }
+
   const counts = {
     salesmen: await prisma.salesman.count(),
     deskUsers: await prisma.deskUser.count(),
@@ -309,6 +415,7 @@ async function main() {
     orders: await prisma.order.count(),
     aiCaptures: await prisma.aICapture.count(),
     aliases: await prisma.alias.count(),
+    tallyExports: await prisma.tallyExport.count(),
     statusEvents: await prisma.orderStatusEvent.count(),
   };
   console.log("Seeded Kirana OrderDesk:", counts);

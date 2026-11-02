@@ -31,7 +31,7 @@ export function TotalsCard({ totals, m }: { totals: OrderTotals; m: CartLineMess
           <dt className="text-slate-600">{m.cart.gst}</dt>
           <dd>{formatINR(totals.gstPaise)}</dd>
         </div>
-        <div className={`${row} border-t border-slate-200 pt-2 text-base font-bold`}>
+        <div className={`${row} border-t border-slate-200 pt-2 text-lg font-bold`}>
           <dt>{m.cart.grandTotal}</dt>
           <dd>{formatINR(totals.grandTotalPaise)}</dd>
         </div>

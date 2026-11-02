@@ -66,7 +66,7 @@ export function LineMoney({ line, m }: { line: QuotedLine; m: CartLineMessages }
         <dt className="text-slate-600">{fmt(m.cart.gstAt, { r: line.gstRatePercent })}</dt>
         <dd>{formatINR(line.gstPaise)}</dd>
       </div>
-      <div className={`${row} font-semibold`}>
+      <div className={`${row} pt-1 text-base font-bold`}>
         <dt>{m.cart.lineTotal}</dt>
         <dd>{formatINR(line.totalPaise)}</dd>
       </div>

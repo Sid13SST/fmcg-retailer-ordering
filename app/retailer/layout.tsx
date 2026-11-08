@@ -23,7 +23,7 @@ export default async function RetailerLayout({ children }: { children: React.Rea
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">Kirana OrderDesk</p>
-            <p className="truncate text-base font-semibold">{retailer.shopName}</p>
+            <p className="line-clamp-2 break-words text-base font-semibold leading-snug">{retailer.shopName}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <LanguageToggle locale={locale} label={m.nav.switchTo} ariaLabel={m.nav.switchToLabel} />

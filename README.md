@@ -69,6 +69,7 @@ users to `/login`.
 ## Screenshots
 
 Viewport shots of the seeded demo (catalogue + cart bar, AI capture result, desk review, credit-hold dialog, 360px catalogue, desk dashboard) are in [`docs/screenshots/`](docs/screenshots/).
+Hindi UI shots (`hi-*.png`, desktop 1280px and phone 360px) cover the catalogue, cart, checkout, AI capture result and order detail.
 
 ## Architecture
 

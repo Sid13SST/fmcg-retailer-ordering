@@ -65,7 +65,8 @@ const en = {
   },
   catalogue: {
     title: "Catalogue",
-    searchPlaceholder: "Search name, brand or your word (e.g. peti biscuit)",
+    searchPlaceholder: "Search products",
+    searchHint: "Name, brand or your own word, e.g. peti biscuit",
     searchLabel: "Search products",
     search: "Search",
     category: "Category",
@@ -340,7 +341,8 @@ const hi: Messages = {
   },
   catalogue: {
     title: "सामान",
-    searchPlaceholder: "नाम, ब्रांड या अपना शब्द लिखें (जैसे peti biscuit)",
+    searchPlaceholder: "सामान खोजें",
+    searchHint: "नाम, ब्रांड या अपना शब्द, जैसे peti biscuit",
     searchLabel: "सामान खोजें",
     search: "खोजें",
     category: "श्रेणी",

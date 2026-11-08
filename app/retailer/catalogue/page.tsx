@@ -90,7 +90,8 @@ export default async function CataloguePage({
           type="search"
           defaultValue={q}
           placeholder={m.catalogue.searchPlaceholder}
-          className="field sm:flex-1"
+          aria-describedby="q-hint"
+          className="field min-w-0 sm:flex-1"
         />
         <div className="flex gap-2">
           <label htmlFor="cat" className="sr-only">
@@ -114,6 +115,9 @@ export default async function CataloguePage({
           </button>
         </div>
       </form>
+      <p id="q-hint" className="mt-1 text-xs text-slate-500">
+        {m.catalogue.searchHint}
+      </p>
 
       <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
         <span>{plural(skus.length, m.catalogue.resultsOne, m.catalogue.resultsMany)}</span>

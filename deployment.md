@@ -147,6 +147,73 @@ returned in an API response, stored in the database or printed by the smoke scri
    npx tsx scripts/gemini-smoke.ts
    ```
 
+### Live verification script (`scripts/verify-live-ai.ts`)
+
+Runs the live Gemini path end to end, free tier only. It reads the key from the
+`GEMINI_API_KEY` environment variable (or `.env`, which is gitignored); the key is sent only
+as the `x-goog-api-key` header and is never printed or written anywhere.
+
+What it does, in at most **8 API calls** per run:
+
+1. lists the models available to the key that support `generateContent` (names only, 1 call);
+2. sends one tiny prompt ("Reply with exactly one word: pong") and prints the reply (1 call);
+3. runs the app's real capture service (`parseCapture` in `lib/capture/service.ts`) on three
+   free-text orders (English, Hinglish, Hindi in Devanagari) for the seeded retailer
+   Agrawal Kirana Stores, and prints the engine, model and parsed lines as JSON for each
+   (1 call per order, plus at most 1 repair retry).
+
+Model: `GEMINI_MODEL` if set; otherwise `gemini-3.5-flash-lite` (flash-lite free tier is about
+500 requests/day and 15 per minute, against about 20/day for non-lite flash). If that name is
+not listed for the key, the newest listed flash-lite model is used. If no flash-lite model is
+listed, the script stops (exit 4) and asks you to choose with `GEMINI_MODEL`; it does not
+pick a non-lite model by itself. A run uses one model only (no fallback to another model).
+
+Run it from a clean checkout:
+
+```bash
+npm ci
+```
+
+```bash
+cp .env.example .env
+```
+
+Set `DATABASE_URL="file:./dev.db"` and `SESSION_SECRET` in `.env` as in the quick start, and
+add `GEMINI_API_KEY="<your key>"` there (or export it in your shell instead). Then:
+
+```bash
+npx prisma migrate deploy
+```
+
+```bash
+npm run seed
+```
+
+```bash
+npm run verify:ai
+```
+
+To pin a model for one run:
+
+```bash
+GEMINI_MODEL=gemini-3.5-flash-lite npm run verify:ai
+```
+
+Without any key or network, the same three orders through the offline parser (fetch is
+disabled in this mode):
+
+```bash
+npm run verify:ai -- --offline
+```
+
+Exit codes: `0` all orders read by the selected engine, `1` other failure, `2`
+`GEMINI_API_KEY` missing (nothing is called), `3` quota, billing or permission error (the
+exact API message is printed; keep using the offline parser), `4` no flash-lite model
+listed and `GEMINI_MODEL` not set. Step 3 stores PARSED captures in the local database like
+the app does; it never places an order. To stay at zero cost, use an AI Studio key from a
+project **without billing enabled**: then usage over the free quota is refused (HTTP 429),
+not charged.
+
 To rotate or remove the key, edit `.env` and restart. If a key is ever committed by
 mistake, revoke it in Google AI Studio immediately; removing it from git history is not
 enough.

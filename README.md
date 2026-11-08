@@ -184,6 +184,10 @@ Hard rules are enforced on the server too: a confirmation must account for every
 
 Live check of the Gemini path: `npx tsx scripts/gemini-smoke.ts` (needs `GEMINI_API_KEY` or
 `GEMINI_VIA_PROXY=1`; prints HTTP status and parsed JSON, never the key).
+Full live verification (model list, one tiny prompt, three free-text orders through the real
+capture service, at most 8 calls on a flash-lite model): `npm run verify:ai` with `GEMINI_API_KEY`
+in the environment or `.env`; `npm run verify:ai -- --offline` runs the same orders with no
+network. Steps and exit codes: [deployment.md](deployment.md#live-verification-script-scriptsverify-live-aits).
 
 ### Order desk
 
@@ -443,7 +447,7 @@ lib/            Pure domain logic and server helpers
                     cross-site write check
   otp/              OtpProvider interface + MockOtpProvider
 prisma/         schema, migrations, deterministic seed (static data in seed-data.ts)
-scripts/        gemini-smoke.ts live check
+scripts/        gemini-smoke.ts live check; verify-live-ai.ts full live/offline verification
 tests/          Vitest unit + integration tests (desk actions, access control, i18n, notes)
 middleware.ts   role guard for /retailer/* and /desk/*, cross-site refusal for /api/*
 ```
